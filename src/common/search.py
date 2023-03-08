@@ -42,14 +42,20 @@ def search_cves(appctx: ApplicationContext, opts: SearchOptions):
         query = session.query(cve_table)
 
         # filter by the cve IDS, either directly specified in the search options
-        cve_ids = []
-        if opts.cveId: cve_ids.extend(opts.cveId)
-        # or via the cpe 2.3
-        if opts.cpeName: cve_ids.extend(search_cves_by_cpes(appctx, opts))
+        if opts.cveId:
+            cve_ids = list(map(lambda cve_id: cve_id.upper(), set(cve_ids)))
+            query = query.filter(cve_table.vuln_id.in_(cve_ids))
 
-        # filter by the cve IDs
-        cve_ids = list(map(lambda cve_id: cve_id.upper(), set(cve_ids)))
-        if cve_ids: query = query.filter(cve_table.vuln_id.in_(cve_ids))
+        # or via the cpe 2.3
+        if opts.cpeName:
+            cve_ids = search_cves_by_cpes(appctx, opts)
+            # if we got CVE IDs from the CPE 2.3 search, we need to filter the results
+            if cve_ids:
+                query = query.filter(cve_table.vuln_id.in_(cve_ids))
+            # otherwise it means that there are no CVE IDs from the CPE 2.3 search
+            # thus the query needs to return no records
+            else:
+                query = query.filter(1 == 0)
 
         # filter by the keyword search (regex)
         if opts.keywordSearch:
