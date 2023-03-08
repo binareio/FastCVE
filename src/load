@@ -1,0 +1,616 @@
+#!/usr/bin/env python3
+"""
+The main logic to fetch and populate the DB as well as to update the new changes
+
+Can be run from the command line as follows:
+    (init/full DB data population)
+    $ load.py --data cve cpe cwe capec --full --drop
+
+    (Update only the new changes) will request those updates that happened since the
+    previous run (successfull update).
+    $ load.py --data cve cpe
+
+DB schema would be created/updated if needed at the time of the command run.
+
+Copyright (c) 2020 to date, Binare Oy (license@binare.io) All rights reserved.
+"""
+
+import argparse
+import argcomplete
+import time
+import pytz
+import re
+from tqdm import tqdm
+import requests
+import generic
+from sqlalchemy.dialects.postgresql import insert
+from datetime import datetime, timedelta
+from db.tables import FetchStatus, Vuln, VulnCpes, Cpe, Cwe, Capec
+import concurrent.futures
+import logging
+import json
+from common.util import init_db_schema
+
+SPLIT_BY_COLUMN = re.compile(r'(?<!\\):')
+BATCH_SIZE = 256
+
+
+class ValidationError(Exception): ...
+class StatusError(Exception): ...
+
+
+# ------------------------------------------------------------------------------
+def generate_vuln_cpe(vuln_id, config, group_id, parent_group_id):
+
+    result = dict(
+        vuln_id=vuln_id,
+        cond=config.get('operator', 'N/A'),
+        parent_group_id=parent_group_id, group_id=group_id,
+        negate=config.get('negate', False),
+        part=None, vendor=None, product=None, version=None, version_lt=None, version_le=None, version_gt=None, version_ge=None,
+        update=None, edition=None, language=None, sw_edition=None, target_sw=None, target_hw=None,
+        cpe=None,
+        vulnerable=None
+     )
+
+    if 'nodes' not in config:
+
+        part, vendor, product, version, update, edition, \
+        language, sw_edition, target_sw, target_hw, *_ = SPLIT_BY_COLUMN.split(config.get('criteria', '::::::::::::'))[2:]
+
+        result.update(
+            part=part, vendor=vendor, product=product, version=version,
+            update=update, edition=edition, language=language, sw_edition=sw_edition, target_sw=target_sw, target_hw=target_hw,
+            cpe=config.get('criteria', None), vulnerable=config.get('vulnerable', None),
+        )
+
+        if 'versionEndIncluding' in config: result['version_le'] = config['versionEndIncluding']
+        if 'versionEndExcluding' in config: result['version_lt'] = config['versionEndExcluding']
+        if 'versionStartIncluding' in config: result['version_ge'] = config['versionStartIncluding']
+        if 'versionStartExcluding' in config: result['version_gt'] = config['versionStartExcluding']
+
+    return result
+
+
+# ------------------------------------------------------------------------------
+def get_items_from(config):
+    if type(config) is list:
+        for item in config:
+            yield item
+    elif type(config) is dict:
+        yield config
+
+
+# ------------------------------------------------------------------------------
+def generate_vuln_cpes(vuln_id, config, group_id=0, parent_group_id=0) -> tuple:
+
+    result = []
+    for item in get_items_from(config):
+        # if we have an operator and inside we have another nodes then we'll add
+        # a new record that would just indicate the grouping and the condition for the grouping, (not CPE info)
+        if 'operator' in item and 'nodes' in item:
+            group_id += 1
+            result.append(generate_vuln_cpe(vuln_id, item, group_id, parent_group_id))
+        if 'nodes' in item and type(item['nodes']) is list:
+            new_group_id = group_id
+            for node in item['nodes']:
+                new_group_id, new_items = generate_vuln_cpes(vuln_id, node, new_group_id + 1, group_id)
+                result.extend(new_items)
+            group_id = new_group_id
+        elif 'cpeMatch' in item and type(item['cpeMatch']) is list:
+            result.extend([generate_vuln_cpe(vuln_id, dict(operator=item.get('operator', None),
+                                                           negate=item.get('negate', None),
+                                                           **cpe_match), group_id, parent_group_id)
+                           for cpe_match in item['cpeMatch']])
+
+    return (group_id, result)
+
+
+# ------------------------------------------------------------------------------
+def save_vuln_cpes_data(appctx, db_records):
+
+    with appctx.db as session:
+
+        delete_ids = list(set([item['vuln_id'] for item in db_records]))
+        for batch in [delete_ids[i:i + BATCH_SIZE] for i in range(0, len(delete_ids), BATCH_SIZE)]:
+            session.query(VulnCpes).filter(VulnCpes.vuln_id.in_(batch)).delete(synchronize_session=False)
+
+        for batch in [db_records[i:i + BATCH_SIZE] for i in range(0, len(db_records), BATCH_SIZE)]:
+            session.bulk_insert_mappings(VulnCpes, batch, render_nulls=True)
+
+
+# ------------------------------------------------------------------------------
+def save_cve_data(appctx, data) -> dict:
+
+    key = 'vulnerabilities'
+    db_records = []
+    db_records_cpes = []
+    if key in data and data[key]:
+        for cve in data[key]:
+            cve = cve['cve']
+
+            if 'configurations' in cve:
+                db_records_cpes.extend(generate_vuln_cpes(cve['id'], cve['configurations'])[1])
+                # cve.pop('configurations')
+
+            cve_record = dict(
+                vuln_id=cve.get('id', None),
+                published_date=cve.get('published', None),
+                last_modified_date=cve.get('lastModified', None),
+                source=cve.get('sourceIdentifier', None),
+                data=cve
+            )
+            cve_record['description'] = [desc['value'] for desc in cve.get('descriptions', [{'lang':'en'}]) if desc['lang'] == 'en'][0]
+            db_records.append(cve_record)
+
+    with appctx.db as session:
+        # First remove the existing records (if any)
+        for batch in [db_records[i:i + BATCH_SIZE] for i in range(0, len(data[key]), BATCH_SIZE)]:
+            session.query(Vuln).filter(Vuln.vuln_id.in_([cve['vuln_id'] for cve in batch])).delete(synchronize_session=False)
+
+            session.bulk_insert_mappings(Vuln, batch, render_nulls=True)
+
+        save_vuln_cpes_data(appctx, db_records_cpes)
+
+    return {'index': data['startIndex'], 'total': data['totalResults'], 'processed': len(db_records)}
+
+
+# ------------------------------------------------------------------------------
+def save_cpe_data(appctx, data) -> dict:
+
+    key = 'products'
+    db_records = []
+    if key in data and data[key]:
+        for cpe in data[key]:
+            cpe = cpe['cpe']
+
+            part, vendor, product, version, update, edition, \
+                language, sw_edition, target_sw, target_hw, *_ = SPLIT_BY_COLUMN.split(cpe.get('cpeName', '::::::::::::'))[2:]
+
+            cpe_record = dict(
+                name=cpe.get('cpeName', None),
+                name_id=cpe.get('cpeNameId', None),
+                last_modified_date=cpe.get('lastModified', None),
+                created=cpe.get('created', None),
+                part=part, vendor=vendor, product=product, version=version, update=update, edition=edition,
+                language=language, sw_edition=sw_edition, target_sw=target_sw, target_hw=target_hw,
+                data=cpe
+            )
+            cpe_record['title_en'] = [title['title'] for title in cpe.get('titles', [{'lang': 'en'}]) if title['lang'] == 'en'][0]
+            db_records.append(cpe_record)
+
+    with appctx.db as session:
+        # First remove the existing records (if any)
+        for delete_batch in [data[key][i:i + BATCH_SIZE] for i in range(0, len(data[key]), BATCH_SIZE)]:
+            session.query(Cpe).filter(Cpe.name.in_([cpe['cpe']['cpeName'] for cpe in delete_batch])).delete(synchronize_session=False)
+
+        for batch in [db_records[i:i + BATCH_SIZE] for i in range(0, len(data[key]), BATCH_SIZE)]:
+            session.bulk_insert_mappings(Cpe, batch, render_nulls=True)
+
+    return {'index': data['startIndex'], 'total': data['totalResults'], 'processed': len(db_records)}
+
+
+# ------------------------------------------------------------------------------
+def fetch_data_feed(appctx, data_name, args):
+
+    import zipfile
+    import io
+
+    fetch_data_info = fetch_status(appctx, data_name, args)
+    if fetch_data_info and not args.full:
+        print(f"{data_name} data is already present. Loaded on {fetch_data_info['last_modified_date']}: {fetch_data_info['stats']['total_records']} records")
+        return
+
+    # download the file
+    data_url = appctx.config.get_param(f'fetch.url.{data_name}', None)
+    if not data_url: raise ValidationError(f'{data_name} url config param not specified')
+
+    rest_session = requests.Session()
+    content = None
+    try:
+
+        response = rest_session.get(data_url, stream=True)
+        total_size = int(response.headers.get("content-length", 0))
+
+        if response.status_code == 200:
+
+            # fetch the file in chunks to be able to show also download progress
+            fetch_progress_name = f'{data_name} fetch'
+            bar_format = '{n_fmt}/{total} {l_bar}{bar}| ({elapsed}/{remaining})'
+            fetch_progress = tqdm(total=total_size, unit='B', bar_format=f'{fetch_progress_name:<20} {bar_format}', ascii=True)
+            content = io.BytesIO()
+            for chunk in response.iter_content(chunk_size=1024):
+                content.write(chunk)
+                fetch_progress.update(len(chunk))
+
+            content.seek(0)
+            fetch_progress.close()
+
+        else:
+            # handle error
+            print(f"Request failed with status code {response.status_code} {response.text}")
+            return
+
+    except requests.exceptions.RequestException as e:
+        # handle error
+        print(f"Request failed: {e}")
+        return
+
+    # extract the content from the zip (load the xml)
+    file_contents = []
+    if content:
+        with zipfile.ZipFile(content) as zip_ref:
+            file_contents = [zip_ref.read(file) for file in zip_ref.namelist()][0:1]
+
+    # convert to json
+    data_json = None
+    if not file_contents:
+        raise RuntimeError('Could not extract anything from the zip content')
+    else:
+        import xmltodict
+        data_json = xmltodict.parse(file_contents[0], force_list=('xhtml:p',), attr_prefix='')
+
+    # process/clean the CWE json data
+    def get_cwe_data(item):
+        item.pop('Demonstrative_Examples', None)
+        item.pop('Observed_Examples', None)
+        item.pop('References', None)
+        item.pop('Content_History', None)
+        return dict(
+            cwe_id=item.get('ID', 0),
+            name=item.get('Name', ''),
+            status=item.get('Status', None),
+            description=item.get('Description', None),
+            data=item
+        )
+
+    # process/clean the CAPEC json data
+    def get_capec_data(item):
+        item.pop('Content_History', None)
+        return dict(
+            capec_id=item.get('ID', 0),
+            name=item.get('Name', ''),
+            description=json.dumps(item.get('Description', None)),
+            status=item.get('Status', None),
+            data=item
+        )
+
+    if data_name == 'cwe':
+
+        db_records = list(map(get_cwe_data, data_json.get('Weakness_Catalog', {}).get('Weaknesses', {}).get('Weakness', [])))
+        data_date = data_json.get('Weakness_Catalog', {}).get('Date', None)
+        save_data_method = save_cwe_data
+
+    elif data_name == 'capec':
+
+        db_records = list(map(get_capec_data, data_json.get('Attack_Pattern_Catalog', {}).get('Attack_Patterns', {}).get('Attack_Pattern', [])))
+        data_date = data_json.get('Attack_Pattern_Catalog', {}).get('Date', None)
+        save_data_method = save_capec_data
+
+    else: raise ValidationError(f'Unknown data type to save: <{data_name}>')
+
+    # load into Cwe/Capec table
+    save_data_method(appctx, args, db_records)
+
+    # Update the stats about retrieved information
+    fetch_status(appctx, data_name, args, data=dict(to_date=data_date, total_proc_records=len(db_records)))
+
+
+# ------------------------------------------------------------------------------
+def save_cwe_data(appctx, args, db_records):
+
+    with appctx.db as session:
+
+        if args.drop:
+            session.execute(f'truncate {Cwe.__tablename__}')
+        else:
+            for batch in [db_records[i:i + BATCH_SIZE] for i in range(0, len(db_records), BATCH_SIZE)]:
+                session.query(Cwe).filter(Cwe.cwe_id.in_([item['cwe_id'] for item in batch])).delete(synchronize_session=False)
+
+        db_insert_progress_name = 'cwe db insert'
+        bar_format = '{n_fmt}/{total} {l_bar}{bar}| ({elapsed}/{remaining})'
+        db_insert_progress = tqdm(total=len(db_records), bar_format=f'{db_insert_progress_name:<20} {bar_format}', ascii=True)
+        for batch in [db_records[i:i + BATCH_SIZE] for i in range(0, len(db_records), BATCH_SIZE)]:
+            session.bulk_insert_mappings(Cwe, batch, render_nulls=True)
+            db_insert_progress.update(len(batch))
+
+        db_insert_progress.close()
+
+
+# ------------------------------------------------------------------------------
+def save_capec_data(appctx, args, db_records):
+
+    with appctx.db as session:
+
+        if args.drop:
+            session.execute(f'truncate {Capec.__tablename__}')
+        else:
+            for batch in [db_records[i:i + BATCH_SIZE] for i in range(0, len(db_records), BATCH_SIZE)]:
+                session.query(Capec).filter(Capec.capec_id.in_([item['capec_id'] for item in batch])).delete(synchronize_session=False)
+
+        db_insert_progress_name = 'capec db insert'
+        bar_format = '{n_fmt}/{total} {l_bar}{bar}| ({elapsed}/{remaining})'
+        db_insert_progress = tqdm(total=len(db_records), bar_format=f'{db_insert_progress_name:<20} {bar_format}', ascii=True)
+        for batch in [db_records[i:i + BATCH_SIZE] for i in range(0, len(db_records), BATCH_SIZE)]:
+            session.bulk_insert_mappings(Capec, batch, render_nulls=True)
+            db_insert_progress.update(len(batch))
+
+        db_insert_progress.close()
+
+
+# ------------------------------------------------------------------------------
+def fetch_data(appctx, data_name, args):
+
+    # ------------------------------------------------------------------
+    # validate the data_name type to fetch
+    if data_name == 'cve':
+        method = save_cve_data
+    elif data_name == 'cpe':
+        method = save_cpe_data
+    elif data_name in ('cwe', 'capec'):
+        fetch_data_feed(appctx, data_name, args)
+        return
+    else:
+        raise ValidationError(f'Unknown data type to fetch: <{data_name}>')
+
+    # ------------------------------------------------------------------
+    # process the config parameters and argument parameters
+    fetch_ind = True
+    url = appctx.config.get_param(f'fetch.url.{data_name}')
+    api_key = appctx.config.get_param('fetch.api_key', None)
+
+    if api_key: fetch_pause = appctx.config.get_param('fetch.request.pause.with_key', 1)
+    else: fetch_pause = appctx.config.get_param('fetch.request.pause.without_key', 10)
+
+    data_index = 0
+    if args.offset: data_index = int(args.offset)
+
+    # set the timezone as per the configuration to use for time adjustment
+    timezone_cfg = appctx.config.get_param('fetch.timezone', 'UTC')
+    timezone = None
+    try:
+        timezone = pytz.timezone(timezone_cfg)
+    except pytz.exceptions.UnknownTimeZoneError:
+        print(f"Wrong timezone specification: {timezone_cfg}, setting 'UTC' as default")
+        timezone = pytz.timezone('UTC')
+
+    # ------------------------------------------------------------------
+    # let's see if we need to populate the full DB or just part of it
+    from_date = None
+    if args.to_date:
+        if 'T' in args.to_date:
+            to_date = datetime.strptime(args.to_date, "%Y-%m-%dT%H:%M:%S")
+        else:
+            to_date = datetime.strptime(args.to_date, "%Y-%m-%d")
+    else:
+        to_date = datetime.now()
+
+    prev_fetch_status = fetch_status(appctx, data_name, args)
+    if prev_fetch_status:
+        from_date = prev_fetch_status['last_modified_date']
+
+    from_date_args = None
+    if args.from_date:
+        if 'T' in args.from_date:
+            from_date_args = datetime.strptime(args.from_date, "%Y-%m-%dT%H:%M:%S")
+        else:
+            from_date_args = datetime.strptime(args.from_date, "%Y-%m-%d")
+
+    if not from_date and from_date_args:
+        raise ValidationError('from_date would be ignored as the DB is not populated or the sync data info is missing')
+    elif from_date and from_date_args and from_date < from_date_args:
+        raise ValidationError(f'specified from_date is bigger then the last update date <{from_date}> which can make "holes" in the vuln DB data')
+    elif from_date_args:
+        from_date = from_date_args
+
+    # ------------------------------------------------------------------
+    # prepare the API query parameters
+    rest_session = requests.Session()
+    if api_key: rest_session.headers.update(apiKey=f'{api_key}')
+
+    if from_date:
+
+        # make sure the period between the dates is not more than ? days as per the config param
+        fetch_max_days_period = appctx.config.get_param('fetch.max.days.period', 120)
+        if (to_date - from_date).days > fetch_max_days_period:
+            new_to_date = datetime(from_date.year, from_date.month, from_date.day) + timedelta(days=fetch_max_days_period)
+            print(f'The number of days between <{from_date}> and <{to_date}> is more than allowed '
+                  f'<{fetch_max_days_period}> days, thus setting the to_date to: {new_to_date}')
+            to_date = new_to_date
+
+        rest_session.params.update(lastModStartDate=str(timezone.localize(from_date.replace(microsecond=0))).replace(' ', 'T'),
+                      lastModEndDate=str(timezone.localize(to_date.replace(microsecond=0))).replace(' ', 'T'))
+
+        print(f'Starting {data_name} fetch from <{from_date}> till <{to_date}>')
+
+    else:
+        print(f'Starting {data_name} fetch')
+
+    # ------------------------------------------------------------------
+    # init a thread pool of workers that would be used to process the data loaded in parallel
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=10)
+    workers = set()
+
+    # ------------------------------------------------------------------
+    # do the actual data retrieval
+    success = True
+    total_proc_records = 0
+
+    fetch_progress_name = f'{data_name} fetch'
+    db_insert_progress_name = f'{data_name} db insert'
+    bar_format = '{n_fmt}/{total} {l_bar}{bar}| ({elapsed}/{remaining})'
+    fetch_progress = tqdm(total=None, bar_format=f'{fetch_progress_name:<20} {bar_format}', ascii=True)
+    db_insert_progress = tqdm(total=None, bar_format=f'{db_insert_progress_name:<20} {bar_format}', ascii=True)
+    fetch_progress.update(data_index)
+
+    while fetch_ind:
+        rest_session.params.update(startIndex=data_index)
+        try:
+            response = rest_session.get(url)
+            if response.status_code == 200:
+
+                data = response.json()
+                total_results, page_size = (data['totalResults'], data['resultsPerPage'])
+                workers.add(executor.submit(method, appctx, data))
+                if page_size > 0:
+                    if fetch_progress.total is None:
+                        fetch_progress.total = total_results
+                    if db_insert_progress.total is None:
+                        db_insert_progress.total = total_results - data_index
+                    fetch_progress.update(page_size)
+                    data_index += page_size
+                    total_proc_records += page_size
+                    if data_index < total_results:
+                        time.sleep(fetch_pause)
+                    else:
+                        break
+                else:
+                    break
+
+                done, not_done = concurrent.futures.wait(workers, timeout=fetch_pause, return_when=concurrent.futures.FIRST_COMPLETED)
+                for worker in done:
+                    db_insert_progress.update(worker.result()['processed'])
+
+                workers = not_done
+            else:
+                # handle error
+                print(f"Request failed with status code {response.status_code} {response.text}")
+                success = False
+                break
+
+        except requests.exceptions.RequestException as e:
+            # handle error
+            print(f"Request failed: {e}")
+            success = False
+            break
+
+    # wait for the rest of db saving tasks to finnish
+    while True:
+        done, not_done = concurrent.futures.wait(workers, timeout=fetch_pause, return_when=concurrent.futures.FIRST_COMPLETED)
+        for worker in done:
+            db_insert_progress.update(worker.result()['processed'])
+        if not not_done:
+            break
+        else:
+            workers = not_done
+
+    fetch_progress.close()
+    db_insert_progress.close()
+
+    executor.shutdown()
+
+    # time to save the details about what was done above
+    if success:
+        fetch_status(appctx, data_name, args,
+                     data=dict(to_date=to_date, total_proc_records=total_proc_records))
+
+
+# ------------------------------------------------------------------------------
+def fetch_status(appctx, name, args, data=None):
+    with appctx.db as session:
+
+        # then we need to save/update the data in the fetch status table
+        if data:
+
+            if name == 'cve':      table_name = Vuln
+            elif name == 'cpe':    table_name = Cpe
+            elif name == 'cwe':    table_name = Cwe
+            elif name == 'capec':  table_name = Capec
+            else: raise ValidationError(f'Cannot determine a valid table name: {name}')
+
+            total_records = session.query(table_name.id).count()
+
+            stats = {
+                FetchStatus.name.key: name,
+                FetchStatus.last_modified_date.key: data['to_date'],
+                FetchStatus.stats.key: {
+                    'args': {
+                        'data': name,
+                        'from_date': args.from_date,
+                        'to_date': args.to_date,
+                        'offset': args.offset
+                    },
+                    'processed_records': data['total_proc_records'],
+                    'total_records': total_records
+                }
+            }
+            upsert_qry = insert(FetchStatus).values(**stats)
+            upsert_qry = upsert_qry.on_conflict_do_update(index_elements=[FetchStatus.name.key], set_=stats)
+            session.execute(upsert_qry)
+
+        # we need to get the data from the fetch status table
+        else:
+            info = session.query(FetchStatus).filter(FetchStatus.name == name).one_or_none()
+            if info:
+                return dict(
+                    name=info.name,
+                    last_modified_date=info.last_modified_date,
+                    stats=info.stats
+                )
+            else:
+                return None
+
+
+# ------------------------------------------------------------------------------
+def validate_opts(opts):
+
+    if opts.get('drop', False) and not opts.get('full', False):
+        raise argparse.ArgumentError(opts, '--full option is mandatory if --drop was specified')
+
+
+# ------------------------------------------------------------------------------
+def main():
+    """Main function"""
+
+    start_time = time.time()
+
+    appctx = generic.ApplicationContext()
+
+    # --------------------------------------------------------------------------
+    # Parse the arguments and Validate
+    parser = argparse.ArgumentParser(description="FastCVE database Loader")
+    parser.add_argument('-d', '--data', dest='data', nargs='+', required=True, choices=['cpe', 'cve', 'cwe', 'capec'], help='Specify data to be loaded')
+    parser.add_argument('--full', dest='full', action='store_true', help='Will consider to fetch all data again')
+    parser.add_argument('--drop', dest='drop', action='store_true', help='This will drop first existing data')
+    parser.add_argument('-f', '--from', dest='from_date', action='store', help='From Date YYYY-MM-DD["T"HH:MI:SS]')
+    parser.add_argument('-t', '--to', dest='to_date', action='store', help='To Date YYYY-MM-DD["T"HH:MI:SS]')
+    parser.add_argument('-o', '--offset', dest='offset', action='store', help='Data Fetch offset')
+    parser.add_argument('-p', '--profile', dest='profile', action='store_true', help='enable app profiling')
+
+    argcomplete.autocomplete(parser)
+
+    args = parser.parse_args()
+
+    profile = None
+    if args.profile:
+        import cProfile
+        profile = cProfile.Profile()
+        profile.enable()
+
+    # create/update the DB schema if necessary
+    init_db_schema()
+
+    args_dict = vars(args)
+
+    logger = logging.getLogger(__name__)
+    logger.info(f'Loading data args: {args_dict}')
+
+    validate_opts(args_dict)
+
+    # now we need to fetch the data from NVD/NIST/MITRE using the API and populate the DB
+    for data in args.data:
+        fetch_data(appctx, data, args)
+
+    elapsed_time = time.time() - start_time
+    logger.info(f'Finished loading data in {elapsed_time:.3f} seconds')
+
+    if args.profile and profile:
+        profile_file = f'./load_profile_{datetime.utcnow().strftime("%Y%m%d_%H%M")}.prof'
+        profile.disable()
+        profile.create_stats()
+        profile.dump_stats(profile_file)
+
+
+if __name__ == "__main__":
+    result = main()
+

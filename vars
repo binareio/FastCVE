@@ -1,0 +1,11 @@
+#!/bin/bash
+
+branch=$(git branch --show-current)
+export INP_ENV_NAME=${1:-test}
+export FCDB_HOME=$(pwd)/src
+export DOCKER_TAG=$branch
+export CI_BUILD_REF_NAME=$branch
+
+. ./src/config/setenv.sh
+
+export PYTHONPATH=${FCDB_HOME}/src
