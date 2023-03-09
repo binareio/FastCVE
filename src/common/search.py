@@ -43,7 +43,7 @@ def search_cves(appctx: ApplicationContext, opts: SearchOptions):
 
         # filter by the cve IDS, either directly specified in the search options
         if opts.cveId:
-            cve_ids = list(map(lambda cve_id: cve_id.upper(), set(cve_ids)))
+            cve_ids = list(map(lambda cve_id: cve_id.upper(), set(opts.cveId)))
             query = query.filter(cve_table.vuln_id.in_(cve_ids))
 
         # or via the cpe 2.3
