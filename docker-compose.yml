@@ -20,6 +20,7 @@ services:
             - FCDB_USER
             - FCDB_PASS
             - FCDB_WEB_PARAMS=--host 0.0.0.0 --port 8000 --workers 4
+            - NVD_API_KEY
 
         volumes:
             - vol_fastcve_db:/var/lib/postgresql/data

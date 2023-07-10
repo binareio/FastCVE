@@ -22,6 +22,8 @@ import pytz
 import re
 from tqdm import tqdm
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util import Retry
 import generic
 from sqlalchemy.dialects.postgresql import insert
 from datetime import datetime, timedelta
@@ -38,6 +40,12 @@ BATCH_SIZE = 256
 class ValidationError(Exception): ...
 class StatusError(Exception): ...
 
+http_retry_strategy = Retry(
+    total=10,
+    backoff_factor=0.5,
+    status_forcelist=[403, 503],
+    method_whitelist=["GET"]
+)
 
 # ------------------------------------------------------------------------------
 def generate_vuln_cpe(vuln_id, config, group_id, parent_group_id):
@@ -209,6 +217,7 @@ def fetch_data_feed(appctx, data_name, args):
     content = None
     try:
 
+        rest_session.mount(data_url, HTTPAdapter(max_retries=http_retry_strategy))
         response = rest_session.get(data_url, stream=True)
         total_size = int(response.headers.get("content-length", 0))
 
@@ -446,6 +455,7 @@ def fetch_data(appctx, data_name, args):
     while fetch_ind:
         rest_session.params.update(startIndex=data_index)
         try:
+            rest_session.mount(url, HTTPAdapter(max_retries=http_retry_strategy))
             response = rest_session.get(url)
             if response.status_code == 200:
 
