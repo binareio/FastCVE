@@ -25,7 +25,7 @@ Some key technical characteristics of `fastcve` tool:
 
 4. **Automatically updates the DB schema for the latest changes from the previous update**: The tool would automatically update the database with the latest changes, new vulnerabilities, and new Common Platform Enumeration  (CPE) entries, ensuring that the database remains up-to-date and relevant.
 
-The tool is a comprehensive solution for managing a database of vulnerabilities, Common Enumeration Platform (CPE) entries, designed to make it easy to keep the database up-to-date and relevant, and to simplify the process of querying the database for vulnerabilities and information about them. 
+The tool is a comprehensive solution for managing a database of vulnerabilities, Common Platform Enumeration (CPE) entries, designed to make it easy to keep the database up-to-date and relevant, and to simplify the process of querying the database for vulnerabilities and information about them. 
 
 It was designed to be able to handle multiple query entries and maintain a high level of performance. It is optimized to be able to handle a large number of queries efficiently and quickly. The goal is to provide a fast and reliable solution for searching, maintaining and updating information about vulnerabilities and their corresponding CPE entries. The tool is also able to provide information about CWE (Common Weakness Enumerations) and CAPEC (Common Attack Pattern Enumerations and Classification)
 
