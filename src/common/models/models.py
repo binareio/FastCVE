@@ -49,6 +49,7 @@ class SearchInfoType(str, Enum):
     cwe = "cwe"
     cpe = "cpe"
     capec = "capec"
+    epss = "epss"
     status = "status"
 
 
@@ -93,6 +94,10 @@ class SearchOptions(BaseModel):
     days: Optional[int] = Field(default=None, description="Number of days back when the CVEs were last modified", alias="days-back", ge=0)
     deprecated: Optional[bool] = Field(default=False, description="If set to true, will fetch only the deprecated CPE names", alias="deprecated")
     profile: Optional[bool] = Field(default=None, description="Would also run the profile execution of the search and save the results in a file")
+    epssScoreGt: Optional[float] = Field(default=None, description="Filter by EPSS score greater than", alias="epss-score-gt", gt=0)   # New field for EPSS score greater than
+    epssScoreLt: Optional[float] = Field(default=None, description="Filter by EPSS score less than", alias="epss-score-lt", gt=0)  # New field for EPSS score less than
+    epssPercGt: Optional[float] = Field(default=None, description="Filter by EPSS percentile greater than", alias="epss-perc-gt", ge=0, le=1)  # New field for EPSS percentile greater than
+    epssPercLt: Optional[float] = Field(default=None, description="Filter by EPSS percentile less than", alias="epss-perc-lt", ge=0, le=1) # New field for EPSS percentile less than
     output: OutputType = Field(default=OutputType.json, description="Define the output format")
 
     class Config:
