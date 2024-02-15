@@ -360,6 +360,8 @@ def save_capec_data(appctx, args, db_records):
 
 
 def fetch_epss_data(appctx):
+    import gzip
+
     today = datetime.now().astimezone(pytz.timezone('UTC'))
     previous_day = today - timedelta(days=1)
     # When the specified data to be loaded is cve then first download the EPSS data using the previous day from the current date.
