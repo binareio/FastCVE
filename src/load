@@ -142,6 +142,7 @@ def save_cve_data(appctx, data) -> dict:
             if 'configurations' in cve:
                 db_records_cpes.extend(generate_vuln_cpes(cve['id'], cve['configurations'])[1])
                 # cve.pop('configurations')
+            cve_id = cve.get('id', None)
 
             epss_desired_row = next((row for row in epss_data if row['cve'] == cve_id), None)
             try:
@@ -361,6 +362,7 @@ def save_capec_data(appctx, args, db_records):
 
 def fetch_epss_data(appctx):
     import gzip
+    import csv
 
     today = datetime.now().astimezone(pytz.timezone('UTC'))
     previous_day = today - timedelta(days=1)

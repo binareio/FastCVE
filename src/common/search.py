@@ -12,7 +12,7 @@ Copyright (c) 2020 to date, Binare Oy (license@binare.io) All rights reserved.
 import re
 import json
 from typing import List, Iterator
-from sqlalchemy import Boolean
+from sqlalchemy import Boolean,  cast, Numeric
 from sqlalchemy.sql import text, expression
 from sqlalchemy.orm import aliased
 from generic import ApplicationContext
@@ -352,7 +352,7 @@ def search_data(appctx, opts: SearchOptions):
     elif opts.searchInfo == SearchInfoType.cpe:     search_results = search_cpes(appctx, opts)
     elif opts.searchInfo == SearchInfoType.cwe:     search_results = search_cwes(appctx, opts)
     elif opts.searchInfo == SearchInfoType.capec:   search_results = search_capec(appctx, opts)
-    elif opts.searchInfo == SearchInfoType.epss:    search_results = search_cves(appctx, opts)
+    elif opts.searchInfo == SearchInfoType.epss:    search_results = search_epss(appctx, opts)
 
     return search_results
 
@@ -373,7 +373,7 @@ def results_output_id(opts: SearchOptions, search_results):
         SearchInfoType.cpe:     'cpeName',
         SearchInfoType.cwe:     'ID',
         SearchInfoType.capec:   'ID',
-        SearchInfoType.epss:    'ID',
+        # SearchInfoType.epss:    'ID',
     }
 
     key = key_names_map[opts.searchInfo]
