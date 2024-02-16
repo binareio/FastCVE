@@ -352,7 +352,7 @@ def search_data(appctx, opts: SearchOptions):
     elif opts.searchInfo == SearchInfoType.cpe:     search_results = search_cpes(appctx, opts)
     elif opts.searchInfo == SearchInfoType.cwe:     search_results = search_cwes(appctx, opts)
     elif opts.searchInfo == SearchInfoType.capec:   search_results = search_capec(appctx, opts)
-    elif opts.searchInfo == SearchInfoType.epss:    search_results = search_epss(appctx, opts)
+    # elif opts.searchInfo == SearchInfoType.epss:    search_results = search_epss(appctx, opts)
 
     return search_results
 
