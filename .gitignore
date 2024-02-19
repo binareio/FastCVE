@@ -93,6 +93,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+env_fastcve/
 
 # Spyder project settings
 .spyderproject

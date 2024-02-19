@@ -8,6 +8,7 @@ import pytest
 def test_cve_search_by_id(cli_runner):
     """Search CVEs by ID and requests output as ID"""
 
+    import pdb; pdb.set_trace()
     result = cli_runner.runcommand("docker exec fastcve search --search-info cve --cve CVE-1999-0001 --output id")
     assert result.returncode == 0
     assert result.stdout[:13] == 'CVE-1999-0001'
@@ -85,3 +86,19 @@ def test_cve_search_by_several_ids(cli_runner):
         assert 'search' in data, "search Key not found in JSON data"
         assert 'result' in data, "result Key not found in JSON data"
         assert len(data['result']) == 2, "Wrong number of results returned, expected 2"
+
+@pytest.mark.cvesearch
+def test_cve_search_by_epss_score(cli_runner):
+    """Search CVE by epss-score and requests output as JSON. Validate the presense of the search criteria"""
+
+    result = cli_runner.runcommand("docker exec fastcve search --search-info cve --epss-score-gt 0.00100 --output json")
+
+    assert result.returncode == 0
+
+    try:
+        data = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        assert False, "JSON output could not be decoded"
+    else:
+        assert 'search' in data, "search Key not found in JSON data"
+        assert 'result' in data, "result Key not found in JSON data"
