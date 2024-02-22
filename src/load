@@ -221,7 +221,7 @@ def fetch_data_feed(appctx, data_name, args):
         previous_day = today - timedelta(days=1)
         # 1.a. When the specified data to be loaded is cve then first download the EPSS data using the previous day from the current date.
         # (i.e if the run time is 1st Jan 2024 then the data to be downloaded from is https://epss.cyentia.com/epss_scores-2023-12-31.csv.gz
-        data_url = f"{data_url}epss_scores-{previous_day.strftime('%Y-%m-%d')}.csv.gz"
+        data_url = f"{data_url}/epss_scores-{previous_day.strftime('%Y-%m-%d')}.csv.gz"
 
     if not data_url: raise ValidationError(f'{data_name} url config param not specified')
 
@@ -316,15 +316,14 @@ def fetch_data_feed(appctx, data_name, args):
             date_value = date_string.split('T')[0]
 
             # Extract information of each row as a dictionary
-            fieldnames = next(csv_reader)  # the next row is the header information of csv file but we define new names for headers
-            fieldnames_new = ['cve', 'score', 'percentile', 'date']
-            epss_data = []
+            next(csv_reader)  # the next row is the header information of csv file but we define new names for headers
+
+            epss_data = {}
             for row in csv_reader:
                 row.append(date_value)
-                epss_data.append(dict(zip(fieldnames_new, row)))
+                epss_data[row[0]] = row[1:4]
 
         return epss_data, date_value
-
 
     if data_name == 'cwe':
 
@@ -344,7 +343,7 @@ def fetch_data_feed(appctx, data_name, args):
 
     else: raise ValidationError(f'Unknown data type to save: <{data_name}>')
 
-    # load into Cwe/Capec table or  update Vuln table for epss
+    # load into Cwe/Capec table or update Vuln table for epss
     save_data_method(appctx, args, db_records)
 
     # Update the stats about retrieved information
@@ -396,37 +395,41 @@ def save_capec_data(appctx, args, db_records):
 # Function to save EPSS data to the database
 def save_epss_data(appctx, args, epss_records):
     from sqlalchemy.orm import load_only
+    from itertools import islice
 
     with appctx.db as session:
 
-        db_insert_progress_name = 'Vuln db update'
+        db_insert_progress_name = 'Vuln db update epss'
         bar_format = '{n_fmt}/{total} {l_bar}{bar}| ({elapsed}/{remaining})'
         db_insert_progress = tqdm(total=len(epss_records), bar_format=f'{db_insert_progress_name:<20} {bar_format}',ascii=True)
 
-        for batch in [epss_records[i:i + BATCH_SIZE] for i in range(0, len(epss_records), BATCH_SIZE)]:
-            vuln_query= session.query(Vuln).filter(Vuln.vuln_id.in_([item['cve'] for item in batch])).options(load_only(Vuln.data))
+        for batch in [{key: value for key, value in islice(epss_records.items(), i, i + BATCH_SIZE)} for i in range(0, len(epss_records), BATCH_SIZE)]:
 
+            vuln_query= session.query(Vuln).filter(Vuln.vuln_id.in_(batch.keys())).options(load_only(Vuln.data))
+            update_values = []
             # Iterate over the fetched records
             for vuln_record in vuln_query.all():
                 # Find the corresponding record in the batch
-                epss_desired_row = next((row for row in batch if row['cve'] == vuln_record.vuln_id), None)
+                epss_desired_row = batch[vuln_record.vuln_id]
 
-                if epss_desired_row:
-                    # Update the required fields
-                    vuln_record.data['CVE.metrics.epss'] = {'score': epss_desired_row['score'],'percentile': epss_desired_row['percentile'],
-                        'date': epss_desired_row['date']
-                    }
+                if 'CVE.metrics.epss' in vuln_record.data:  # Check if 'CVE.metrics.epss' key already exists in data
+                    vuln_record.data['CVE.metrics.epss'].update({'score': epss_desired_row[0],'percentile': epss_desired_row[1],'date': epss_desired_row[2]})
+                else:
+                    vuln_record.data['CVE.metrics.epss']={'score': epss_desired_row[0],'percentile': epss_desired_row[1],'date': epss_desired_row[2]}
+
+                update_dict  = {'id': vuln_record.id, 'data': vuln_record.data}
+                update_values.append(update_dict)
+            session.bulk_update_mappings(Vuln, update_values)
+
             db_insert_progress.update(len(batch))
-
-            session.commit()
 
         db_insert_progress.close()
 
 # ------------------------------------------------------------------------------
 def fetch_data(appctx, data_name, args):
+
     # ------------------------------------------------------------------
     # validate the data_name type to fetch
-
     if data_name == 'cve':
         method = save_cve_data
     elif data_name == 'cpe':
@@ -590,11 +593,6 @@ def fetch_data(appctx, data_name, args):
         fetch_status(appctx, data_name, args,
                      data=dict(to_date=to_date, total_proc_records=total_proc_records))
 
-        # update_vul_table with epss info only if method == cve!
-        if data_name == 'cve':
-            fetch_data_feed(appctx, 'epss', args)
-
-
 
 # ------------------------------------------------------------------------------
 def fetch_status(appctx, name, args, data=None):
@@ -688,15 +686,12 @@ def main():
 
     validate_opts(args_dict)
 
-    # now we need to fetch the data from NVD/NIST/MITRE/Cyentia using the API and populate the DB
-    data_to_fetch = args.data.copy()
-    # Fetch data for 'cve' if both 'cve' and 'epss' are present
-    if 'cve' in data_to_fetch and 'epss' in data_to_fetch:
-        fetch_data(appctx, 'cve', args)
-        data_to_fetch.remove('cve')
-        data_to_fetch.remove('epss')
+    # if 'cve' is specified but 'epss' is not, then add 'epss' to the processed list
+    if 'cve' in args.data and 'epss' not in args.data:
+        args.data.append('epss')
 
-    for data in data_to_fetch:
+    # now we need to fetch the data from NVD/NIST/MITRE/Cyentia using the API and populate the DB
+    for data in args.data:
         fetch_data(appctx, data, args)
 
     elapsed_time = time.time() - start_time

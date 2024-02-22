@@ -49,7 +49,6 @@ class SearchInfoType(str, Enum):
     cwe = "cwe"
     cpe = "cpe"
     capec = "capec"
-    epss = "epss"
     status = "status"
 
 
