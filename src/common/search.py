@@ -42,15 +42,15 @@ def search_cves(appctx: ApplicationContext, opts: SearchOptions):
         query = session.query(cve_table)
         # Filter by EPSS score
         if opts.epssScoreGt is not None:
-            query = query.filter(cast(cve_table.data['CVE.metrics.epss']['score'].astext, Numeric) > opts.epssScoreGt)
+            query = query.filter(cast(cve_table.data['metrics']['epss']['score'].astext, Numeric) > opts.epssScoreGt)
         if opts.epssScoreLt is not None:
-            query = query.filter(cast(cve_table.data['CVE.metrics.epss']['score'].astext, Numeric) < opts.epssScoreLt)
+            query = query.filter(cast(cve_table.data['metrics']['epss']['score'].astext, Numeric) < opts.epssScoreLt)
 
         # Filter by EPSS percentile
         if opts.epssPercGt is not None:
-            query = query.filter(cast(cve_table.data['CVE.metrics.epss']['percentile'].astext, Numeric) > opts.epssPercGt)
+            query = query.filter(cast(cve_table.data['metrics']['epss']['percentile'].astext, Numeric) > opts.epssPercGt)
         if opts.epssPercLt is not None:
-            query = query.filter(cast(cve_table.data['CVE.metrics.epss']['percentile'].astext, Numeric) < opts.epssPercLt)
+            query = query.filter(cast(cve_table.data['metrics']['epss']['percentile'].astext, Numeric) < opts.epssPercLt)
 
         # filter by the cve IDS, either directly specified in the search options
         if opts.cveId:
@@ -352,7 +352,6 @@ def search_data(appctx, opts: SearchOptions):
     elif opts.searchInfo == SearchInfoType.cpe:     search_results = search_cpes(appctx, opts)
     elif opts.searchInfo == SearchInfoType.cwe:     search_results = search_cwes(appctx, opts)
     elif opts.searchInfo == SearchInfoType.capec:   search_results = search_capec(appctx, opts)
-    # elif opts.searchInfo == SearchInfoType.epss:    search_results = search_epss(appctx, opts)
 
     return search_results
 
@@ -373,7 +372,6 @@ def results_output_id(opts: SearchOptions, search_results):
         SearchInfoType.cpe:     'cpeName',
         SearchInfoType.cwe:     'ID',
         SearchInfoType.capec:   'ID',
-        # SearchInfoType.epss:    'ID',
     }
 
     key = key_names_map[opts.searchInfo]

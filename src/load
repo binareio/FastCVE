@@ -208,6 +208,7 @@ def fetch_data_feed(appctx, data_name, args):
     import gzip
     import csv
 
+
     fetch_data_info = fetch_status(appctx, data_name, args)
     if fetch_data_info and not args.full:
         print(f"{data_name} data is already present. Loaded on {fetch_data_info['last_modified_date']}: {fetch_data_info['stats']['total_records']} records")
@@ -219,8 +220,7 @@ def fetch_data_feed(appctx, data_name, args):
     if data_name == 'epss':
         today = datetime.now().astimezone(pytz.timezone('UTC'))
         previous_day = today - timedelta(days=1)
-        # 1.a. When the specified data to be loaded is cve then first download the EPSS data using the previous day from the current date.
-        # (i.e if the run time is 1st Jan 2024 then the data to be downloaded from is https://epss.cyentia.com/epss_scores-2023-12-31.csv.gz
+        # download the EPSS data from https://epss.cyentia.com/epss_scores-2023-12-31.csv.gz using the previous day from the current date.
         data_url = f"{data_url}/epss_scores-{previous_day.strftime('%Y-%m-%d')}.csv.gz"
 
     if not data_url: raise ValidationError(f'{data_name} url config param not specified')
@@ -304,19 +304,15 @@ def fetch_data_feed(appctx, data_name, args):
     # process the EPSS data
     def get_epss_data(item):
         with gzip.open(item.raw, mode='rt') as csv_file:
-            # csv_reader = csv.DictReader(csv_file) DictReader doens't work since the 1st row in the csv file is not header
             csv_reader = csv.reader(csv_file)
 
-            # Skip the first row as it just contains the '#model_version:v2023.03.01' and 'score_date:2024-02-12T00:00:00+0000'
+            # Skip the first row as it just contains this info: 'model_version:v2023.03.01' and 'score_date:2024-02-12T00:00:00+0000'
             first_row = next(csv_reader)
             # score_date also needed to be extracted
-            # Get the second element and split it on ':'
             date_string = first_row[1].split(':')[1]
-            # Split the date_string on 'T' and take the first part (which is the date)
             date_value = date_string.split('T')[0]
 
-            # Extract information of each row as a dictionary
-            next(csv_reader)  # the next row is the header information of csv file but we define new names for headers
+            next(csv_reader)  # skip the next row which is the header information of csv file
 
             epss_data = {}
             for row in csv_reader:
@@ -393,31 +389,30 @@ def save_capec_data(appctx, args, db_records):
 
 # ------------------------------------------------------------------------------
 # Function to save EPSS data to the database
-def save_epss_data(appctx, args, epss_records):
+def save_epss_data(appctx, args, db_records):
     from sqlalchemy.orm import load_only
-    from itertools import islice
 
     with appctx.db as session:
 
         db_insert_progress_name = 'Vuln db update epss'
         bar_format = '{n_fmt}/{total} {l_bar}{bar}| ({elapsed}/{remaining})'
-        db_insert_progress = tqdm(total=len(epss_records), bar_format=f'{db_insert_progress_name:<20} {bar_format}',ascii=True)
+        db_insert_progress = tqdm(total=len(db_records), bar_format=f'{db_insert_progress_name:<20} {bar_format}',ascii=True)
 
-        for batch in [{key: value for key, value in islice(epss_records.items(), i, i + BATCH_SIZE)} for i in range(0, len(epss_records), BATCH_SIZE)]:
+        for batch in [list(db_records.keys())[i:i + BATCH_SIZE] for i in range(0, len(db_records), BATCH_SIZE)]:
 
-            vuln_query= session.query(Vuln).filter(Vuln.vuln_id.in_(batch.keys())).options(load_only(Vuln.data))
+            vuln_query= session.query(Vuln).filter(Vuln.vuln_id.in_(batch)).options(load_only(Vuln.data))
             update_values = []
-            # Iterate over the fetched records
+
             for vuln_record in vuln_query.all():
-                # Find the corresponding record in the batch
-                epss_desired_row = batch[vuln_record.vuln_id]
 
-                if 'CVE.metrics.epss' in vuln_record.data:  # Check if 'CVE.metrics.epss' key already exists in data
-                    vuln_record.data['CVE.metrics.epss'].update({'score': epss_desired_row[0],'percentile': epss_desired_row[1],'date': epss_desired_row[2]})
+                epss_desired_row = db_records[vuln_record.vuln_id]       # Find the corresponding record in the batch
+
+                if 'epss' in vuln_record.data['metrics']:           # Check if 'epss' key already exists in data.metrics
+                    vuln_record.data['metrics']['epss'].update({'score': epss_desired_row[0],'percentile': epss_desired_row[1],'date': epss_desired_row[2]})
                 else:
-                    vuln_record.data['CVE.metrics.epss']={'score': epss_desired_row[0],'percentile': epss_desired_row[1],'date': epss_desired_row[2]}
+                    vuln_record.data['metrics']['epss']= {'score': epss_desired_row[0],'percentile': epss_desired_row[1],'date': epss_desired_row[2]}
 
-                update_dict  = {'id': vuln_record.id, 'data': vuln_record.data}
+                update_dict = {'id': vuln_record.id, 'data': vuln_record.data}
                 update_values.append(update_dict)
             session.bulk_update_mappings(Vuln, update_values)
 
@@ -685,6 +680,10 @@ def main():
     logger.info(f'Loading data args: {args_dict}')
 
     validate_opts(args_dict)
+
+    # if epss comes before cve (load epss cve), remove epss
+    if 'cve' in args.data and 'epss' in args.data:
+        args.data.remove('epss')
 
     # if 'cve' is specified but 'epss' is not, then add 'epss' to the processed list
     if 'cve' in args.data and 'epss' not in args.data:
