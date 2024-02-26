@@ -45,7 +45,7 @@ http_retry_strategy = Retry(
     total=10,
     backoff_factor=0.5,
     status_forcelist=[403, 503],
-    allowed_methods = ['GET'],
+    method_whitelist = ['GET'],
 )
 
 # ------------------------------------------------------------------------------
