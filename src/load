@@ -16,6 +16,8 @@ Copyright (c) 2020 to date, Binare Oy (license@binare.io) All rights reserved.
 """
 
 import argparse
+from turtle import update
+
 import argcomplete
 import time
 import pytz
@@ -207,12 +209,16 @@ def fetch_data_feed(appctx, data_name, args):
     import io
     import gzip
     import csv
-
+    from datetime import date
 
     fetch_data_info = fetch_status(appctx, data_name, args)
+
     if fetch_data_info and not args.full:
-        print(f"{data_name} data is already present. Loaded on {fetch_data_info['last_modified_date']}: {fetch_data_info['stats']['total_records']} records")
-        return
+        if data_name == 'epss' and fetch_data_info['last_modified_date'].date() != date.today():
+            pass
+        else:
+            print(f"{data_name} data is already present. Loaded on {fetch_data_info['last_modified_date']}: {fetch_data_info['stats']['total_records']} records")
+            return
 
     # download the file
     data_url = appctx.config.get_param(f'fetch.url.{data_name}', None)
@@ -398,13 +404,13 @@ def save_epss_data(appctx, args, db_records):
         bar_format = '{n_fmt}/{total} {l_bar}{bar}| ({elapsed}/{remaining})'
         db_insert_progress = tqdm(total=len(db_records), bar_format=f'{db_insert_progress_name:<20} {bar_format}',ascii=True)
 
-        for batch in [list(db_records.keys())[i:i + BATCH_SIZE] for i in range(0, len(db_records), BATCH_SIZE)]:
+        BATCH_SIZE_epss = 1024
+        for batch in [list(db_records.keys())[i:i + BATCH_SIZE_epss] for i in range(0, len(db_records), BATCH_SIZE_epss)]:
 
-            vuln_query= session.query(Vuln).filter(Vuln.vuln_id.in_(batch)).options(load_only(Vuln.data))
+            vuln_query= session.query(Vuln).filter(Vuln.vuln_id.in_(batch)).options(load_only(Vuln.data)).all()
             update_values = []
 
-            for vuln_record in vuln_query.all():
-
+            for vuln_record in vuln_query:
                 epss_desired_row = db_records[vuln_record.vuln_id]       # Find the corresponding record in the batch
 
                 if 'epss' in vuln_record.data['metrics']:           # Check if 'epss' key already exists in data.metrics
@@ -412,11 +418,10 @@ def save_epss_data(appctx, args, db_records):
                 else:
                     vuln_record.data['metrics']['epss']= {'score': epss_desired_row[0],'percentile': epss_desired_row[1],'date': epss_desired_row[2]}
 
-                update_dict = {'id': vuln_record.id, 'data': vuln_record.data}
-                update_values.append(update_dict)
-            session.bulk_update_mappings(Vuln, update_values)
+                update_values.append({'id': vuln_record.id, 'data': vuln_record.data})
 
-            db_insert_progress.update(len(batch))
+            session.bulk_update_mappings(Vuln, update_values)
+            db_insert_progress.update(BATCH_SIZE_epss)
 
         db_insert_progress.close()
 
@@ -531,7 +536,6 @@ def fetch_data(appctx, data_name, args):
             rest_session.mount(url, HTTPAdapter(max_retries=http_retry_strategy))
             response = rest_session.get(url)
             if response.status_code == 200:
-
                 data = response.json()
                 total_results, page_size = (data['totalResults'], data['resultsPerPage'])
                 workers.add(executor.submit(method, appctx, data))
@@ -559,7 +563,7 @@ def fetch_data(appctx, data_name, args):
             else:
                 # handle error
                 print(f"Request failed with status code {response.status_code} {response.text}")
-                success = False
+                success = Falsesession.ge
                 break
 
         except requests.exceptions.RequestException as e:
@@ -681,12 +685,9 @@ def main():
 
     validate_opts(args_dict)
 
-    # if epss comes before cve (load epss cve), remove epss
+    # if epss comes before cve (load epss cve), first remove epss and add epss at end (epss must be loaded after cve)
     if 'cve' in args.data and 'epss' in args.data:
         args.data.remove('epss')
-
-    # if 'cve' is specified but 'epss' is not, then add 'epss' to the processed list
-    if 'cve' in args.data and 'epss' not in args.data:
         args.data.append('epss')
 
     # now we need to fetch the data from NVD/NIST/MITRE/Cyentia using the API and populate the DB
