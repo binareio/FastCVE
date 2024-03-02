@@ -16,8 +16,6 @@ Copyright (c) 2020 to date, Binare Oy (license@binare.io) All rights reserved.
 """
 
 import argparse
-from turtle import update
-
 import argcomplete
 import time
 import pytz
@@ -411,17 +409,13 @@ def save_epss_data(appctx, args, db_records):
             update_values = []
 
             for vuln_record in vuln_query:
-                epss_desired_row = db_records[vuln_record.vuln_id]       # Find the corresponding record in the batch
-
-                if 'epss' in vuln_record.data['metrics']:           # Check if 'epss' key already exists in data.metrics
-                    vuln_record.data['metrics']['epss'].update({'score': epss_desired_row[0],'percentile': epss_desired_row[1],'date': epss_desired_row[2]})
-                else:
-                    vuln_record.data['metrics']['epss']= {'score': epss_desired_row[0],'percentile': epss_desired_row[1],'date': epss_desired_row[2]}
-
+                # Find the corresponding record in the batch
+                epss_desired_row = db_records[vuln_record.vuln_id]
+                vuln_record.data['metrics']['epss']= {'score': epss_desired_row[0], 'percentile': epss_desired_row[1], 'date': epss_desired_row[2]}
                 update_values.append({'id': vuln_record.id, 'data': vuln_record.data})
 
             session.bulk_update_mappings(Vuln, update_values)
-            db_insert_progress.update(BATCH_SIZE_epss)
+            db_insert_progress.update(len(batch))
 
         db_insert_progress.close()
 
@@ -536,10 +530,10 @@ def fetch_data(appctx, data_name, args):
             rest_session.mount(url, HTTPAdapter(max_retries=http_retry_strategy))
             response = rest_session.get(url)
             if response.status_code == 200:
+
                 data = response.json()
                 total_results, page_size = (data['totalResults'], data['resultsPerPage'])
                 workers.add(executor.submit(method, appctx, data))
-
                 if page_size > 0:
                     if fetch_progress.total is None:
                         fetch_progress.total = total_results
@@ -563,7 +557,7 @@ def fetch_data(appctx, data_name, args):
             else:
                 # handle error
                 print(f"Request failed with status code {response.status_code} {response.text}")
-                success = Falsesession.ge
+                success = False
                 break
 
         except requests.exceptions.RequestException as e:
