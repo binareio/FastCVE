@@ -5,7 +5,7 @@ Copyright (c) 2020 to date, Binare Oy (license@binare.io) All rights reserved.
 """
 
 # coding: utf-8
-from sqlalchemy import (Column, DateTime, Integer, String, Boolean, text,
+from sqlalchemy import (Column, DateTime, Integer, String, Boolean, Float, text,
                         UniqueConstraint, Index, Text)
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.dialects.postgresql.json import JSONB
@@ -145,3 +145,17 @@ class Capec(Base):
     description = Column(Text, comment=u"the description of the CAPEC")
     data = Column(JSONB, comment=u'CAPEC JSON representation')
 
+# ------------------------------------------------------------------------------
+class Epss(Base):
+    __tablename__ = 'epss'
+    __table_args__ = (
+        Index('epss_idx1', 'cve_id'),
+        {u'comment': u'Table that contains the list of EPSS'}
+    )
+
+    id = Column(Integer, primary_key=True)
+    cve_id = Column(String(20), index=True, comment=u'The ID of the CVE')
+    epss_score = Column(Float, nullable=False, comment=u"the score of the epss")
+    percentile = Column(Float, nullable=False, comment=u"the percentile of the epss")
+    date = Column(DateTime, nullable=False, comment=u"Date when the EPSS record has been downloaed")
+    changed = Column(Boolean, comment=u'indicate if epss_score has been changed')
