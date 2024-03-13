@@ -145,7 +145,7 @@ def save_cve_data(appctx, data) -> dict:
                 db_records_cpes.extend(generate_vuln_cpes(cve['id'], cve['configurations'])[1])
                 # cve.pop('configurations')
 
-            if epss_data_fetched: #if epss table is not empty
+            if cve_id in epss_data_fetched and epss_data_fetched[cve_id] is not None:
                 cve['metrics']['epss'] = {'score': epss_data_fetched[cve_id][0], 'percentile': epss_data_fetched[cve_id][1], 'date': epss_data_fetched[cve_id][2]}
 
             cve_record = dict(
@@ -411,30 +411,38 @@ def save_epss_data(appctx, args, epss_records):
         bar_format = '{n_fmt}/{total} {l_bar}{bar}| ({elapsed}/{remaining})'
         db_insert_progress = tqdm(total=len(epss_records), bar_format=f'{db_insert_progress_name:<20} {bar_format}',ascii=True)
 
-        for batch in [list(epss_records.keys())[i:i + BATCH_SIZE] for i in range(0, len(epss_records), BATCH_SIZE)]:
-
-            vuln_query= session.query(Epss).filter(Epss.cve_id.in_(batch)) # read existing data from epss table
+        BATCH_SIZE_EPSS = 5000
+        for batch in [list(epss_records.keys())[i:i + BATCH_SIZE_EPSS] for i in
+                      range(0, len(epss_records), BATCH_SIZE_EPSS)]:
+            existing_records = session.query(Epss).filter(Epss.cve_id.in_(batch)).all()
+            existing_records_dict = {record.cve_id: record for record in existing_records}
 
             new_records = []
-            if vuln_query.count() == 0:
-                # no existing record in epss table. i.e. first run       # set changed to True.
-                for batch_row in batch:
-                    new_records.append({'cve_id': batch_row, 'epss_score': epss_records[batch_row][0],
-                                        'percentile': epss_records[batch_row][1], 'date': epss_records[batch_row][2], 'changed': True})
-            else: #For next runs
+            for cve_id in batch:
+                desired_record = epss_records[cve_id]
+                changed = True #db, it should be False
 
-                for vuln_record in vuln_query.all():
-                    desired_record = epss_records[vuln_record.cve_id]
-                    isChanged = "{:.5f}".format(float(desired_record[0])) != "{:.5f}".format(vuln_record.epss_score)
+                if cve_id in existing_records_dict:
+                    # Check if EPSS score has changed
+                    existing_record = existing_records_dict[cve_id]
+                    is_changed = round(existing_record.epss_score, 5) != round(float(desired_record[0]), 5)
+                    if is_changed:
+                        changed = True
+                else:
+                    # New record
+                    changed = True
 
-                    new_record = {'cve_id': vuln_record.cve_id, 'epss_score': desired_record[0],
-                                  'percentile': desired_record[1], 'date': desired_record[2]}
+                new_records.append({
+                    'cve_id': cve_id,
+                    'epss_score': desired_record[0],
+                    'percentile': desired_record[1],
+                    'date': desired_record[2],
+                    'changed': changed
+                })
 
-                    if isChanged:
-                        new_record['changed'] = True
-                    new_records.append(new_record)
-
+            if existing_records:
                 session.query(Epss).filter(Epss.cve_id.in_(batch)).delete(synchronize_session=False)
+
             session.bulk_insert_mappings(Epss, new_records, render_nulls=True)
             db_insert_progress.update(len(batch))
 
@@ -444,6 +452,7 @@ def save_epss_data(appctx, args, epss_records):
 
 # ------------------------------------------------------------------------------
 def fetch_epss_data(appctx, update_db, CVE_IDS = None):
+    from sqlalchemy.orm import load_only
 
     with appctx.db as session:
 
@@ -456,18 +465,16 @@ def fetch_epss_data(appctx, update_db, CVE_IDS = None):
 
             for batch in [epss_query[i:i + BATCH_SIZE] for i in range(0, len(epss_query), BATCH_SIZE)]:
 
-                vuln_query = session.query(Vuln).filter(Vuln.vuln_id.in_([epss.cve_id for epss in batch])).all()
+                vuln_data = session.query(Vuln).filter(Vuln.vuln_id.in_([epss.cve_id for epss in batch])).options(load_only(Vuln.id, Vuln.data)).all()
                 update_values = []
 
-                for vuln_record, epss_record in zip(vuln_query, batch):
-                    try: #some records has data=None
-                        vuln_record.data['metrics']['epss'] = {'score': epss_record.epss_score, 'percentile': epss_record.percentile, 'date': epss_record.date.strftime("%Y-%m-%d")}
-                    except:
-                        continue
+                for vuln_record, epss_record in zip(vuln_data, batch):
+                    vuln_record.data['metrics']['epss'] = {'score': epss_record.epss_score,
+                                                               'percentile': epss_record.percentile,
+                                                               'date': epss_record.date.strftime("%Y-%m-%d")}
 
                     update_values.append({'id': vuln_record.id, 'data': vuln_record.data})
-
-                session.bulk_update_mappings(Vuln, update_values)
+                session.bulk_update_mappings(Vuln, vuln_data)
         else:
 
             return {query_row.cve_id: [query_row.epss_score, query_row.percentile, query_row.date.strftime("%Y-%m-%d")] for query_row in
