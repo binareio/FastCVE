@@ -420,7 +420,7 @@ def save_epss_data(appctx, args, epss_records):
             new_records = []
             for cve_id in batch:
                 desired_record = epss_records[cve_id]
-                changed = True #db, it should be False
+                changed = False
 
                 if cve_id in existing_records_dict:
                     # Check if EPSS score has changed
@@ -464,17 +464,16 @@ def fetch_epss_data(appctx, update_db, CVE_IDS = None):
         if update_db:
 
             for batch in [epss_query[i:i + BATCH_SIZE] for i in range(0, len(epss_query), BATCH_SIZE)]:
-
                 vuln_data = session.query(Vuln).filter(Vuln.vuln_id.in_([epss.cve_id for epss in batch])).options(load_only(Vuln.id, Vuln.data)).all()
                 update_values = []
 
                 for vuln_record, epss_record in zip(vuln_data, batch):
+
                     vuln_record.data['metrics']['epss'] = {'score': epss_record.epss_score,
                                                                'percentile': epss_record.percentile,
                                                                'date': epss_record.date.strftime("%Y-%m-%d")}
-
                     update_values.append({'id': vuln_record.id, 'data': vuln_record.data})
-                session.bulk_update_mappings(Vuln, vuln_data)
+                session.bulk_update_mappings(Vuln, update_values)
         else:
 
             return {query_row.cve_id: [query_row.epss_score, query_row.percentile, query_row.date.strftime("%Y-%m-%d")] for query_row in
