@@ -146,7 +146,9 @@ def save_cve_data(appctx, data) -> dict:
                 # cve.pop('configurations')
 
             if cve_id in epss_data_fetched and epss_data_fetched[cve_id] is not None:
-                cve['metrics']['epss'] = {'score': epss_data_fetched[cve_id][0], 'percentile': epss_data_fetched[cve_id][1], 'date': epss_data_fetched[cve_id][2]}
+                cve['metrics']['epss'] = {'score': epss_data_fetched[cve_id][0],
+                                          'percentile': epss_data_fetched[cve_id][1],
+                                          'date': epss_data_fetched[cve_id][2]}
 
             cve_record = dict(
                 vuln_id=cve.get('id', None),
@@ -216,7 +218,7 @@ def fetch_data_feed(appctx, data_name, args):
 
     fetch_data_info = fetch_status(appctx, data_name, args)
     if fetch_data_info and not args.full:
-        if data_name == 'epss' and fetch_data_info['last_modified_date'].date() != date.today():
+        if data_name == 'epss' and fetch_data_info['last_modified_date'].date() != date.today()-timedelta(days=1):
             pass
         else:
             print(f"{data_name} data is already present. Loaded on {fetch_data_info['last_modified_date']}: {fetch_data_info['stats']['total_records']} records")
@@ -226,10 +228,8 @@ def fetch_data_feed(appctx, data_name, args):
     data_url = appctx.config.get_param(f'fetch.url.{data_name}', None)
 
     if data_name == 'epss':
-        today = datetime.now().astimezone(pytz.timezone('UTC'))
-        previous_day = today - timedelta(days=1)
-        # 1.a. When the specified data to be loaded is cve then first download the EPSS data using the previous day from the current date.
-        # (i.e if the run time is 1st Jan 2024 then the data to be downloaded from is https://epss.cyentia.com/epss_scores-2023-12-31.csv.gz
+        previous_day = date.today() - timedelta(days=1)
+        #download the EPSS data using the previous day from the current date.
         data_url = f"{data_url}/epss_scores-{previous_day.strftime('%Y-%m-%d')}.csv.gz"
 
     if not data_url: raise ValidationError(f'{data_name} url config param not specified')
@@ -313,16 +313,13 @@ def fetch_data_feed(appctx, data_name, args):
     # process the EPSS data
     def get_epss_data(item):
         with gzip.open(item.raw, mode='rt') as csv_file:
-            # csv_reader = csv.DictReader(csv_file) DictReader doens't work since the 1st row in the csv file is not header
+            # csv_reader = csv.DictReader(csv_file) DictReader doesn't work since the 1st row in the csv file is not header
             csv_reader = csv.reader(csv_file)
 
             # Skip the first row as it just contains the '#model_version:v2023.03.01' and 'score_date:2024-02-12T00:00:00+0000'
             first_row = next(csv_reader)
-            # score_date also needed to be extracted
-            # Get the second element and split it on ':'
-            date_string = first_row[1].split(':')[1]
-            # Split the date_string on 'T' and take the first part (which is the date)
-            date_value = date_string.split('T')[0]
+            # score_date needed to be extracted# Get the 2nd element and split it on ':'# Split the date_string on 'T' and take the first part (which is the date)
+            date_value = first_row[1].split(':')[1].split('T')[0]
 
             # Extract information of each row as a dictionary
             next(csv_reader)  # the next row is the header information of csv file but we define new names for headers
@@ -426,6 +423,7 @@ def save_epss_data(appctx, args, epss_records):
                     # Check if EPSS score has changed
                     existing_record = existing_records_dict[cve_id]
                     is_changed = round(existing_record.epss_score, 5) != round(float(desired_record[0]), 5)
+
                     if is_changed:
                         changed = True
                 else:
@@ -462,17 +460,19 @@ def fetch_epss_data(appctx, update_db, CVE_IDS = None):
             epss_query= session.query(Epss).filter(Epss.cve_id.in_(CVE_IDS)).all()
 
         if update_db:
-
             for batch in [epss_query[i:i + BATCH_SIZE] for i in range(0, len(epss_query), BATCH_SIZE)]:
                 vuln_data = session.query(Vuln).filter(Vuln.vuln_id.in_([epss.cve_id for epss in batch])).options(load_only(Vuln.id, Vuln.data)).all()
                 update_values = []
 
-                for vuln_record, epss_record in zip(vuln_data, batch):
+                for vuln_record in vuln_data:
+                    epss_desired_row = next((row for row in batch if row.cve_id == vuln_record.vuln_id), None)
 
-                    vuln_record.data['metrics']['epss'] = {'score': epss_record.epss_score,
-                                                               'percentile': epss_record.percentile,
-                                                               'date': epss_record.date.strftime("%Y-%m-%d")}
-                    update_values.append({'id': vuln_record.id, 'data': vuln_record.data})
+                    if epss_desired_row:
+                        vuln_record.data['metrics']['epss'] = {'score': epss_desired_row.epss_score,
+                                                               'percentile': epss_desired_row.percentile,
+                                                               'date': epss_desired_row.date.strftime("%Y-%m-%d")}
+
+                        update_values.append({'id': vuln_record.id, 'data': vuln_record.data})
                 session.bulk_update_mappings(Vuln, update_values)
         else:
 
@@ -704,7 +704,6 @@ def validate_opts(opts):
 # ------------------------------------------------------------------------------
 def main():
     """Main function"""
-
     start_time = time.time()
 
     appctx = generic.ApplicationContext()
