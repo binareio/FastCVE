@@ -127,6 +127,13 @@ class CvssV31(BaseModel):
         None, description='CVSS subscore.'
     )
 
+class Epss(BaseModel):
+    class Config:
+        extra = Extra.forbid
+
+    score: float
+    percentile: float
+    Date: datetime
 
 class Node(BaseModel):
     """
@@ -152,6 +159,10 @@ class Metrics(BaseModel):
     cvssMetricV31: Optional[List[CvssV31]] = Field(None, description='CVSS V3.1 score.')
     cvssMetricV30: Optional[List[CvssV30]] = Field(None, description='CVSS V3.0 score.')
     cvssMetricV2: Optional[List[CvssV2]] = Field(None, description='CVSS V2.0 score.')
+    epssScoreGt: Optional[List[Epss]] = Field(None, descexitription='EPSS score greater than.')
+    epssScoreLt: Optional[List[Epss]] = Field(None, description='EPSS score less than.')
+    epssPercGt: Optional[List[Epss]] = Field(None, description='EPSS percentile greater than.')
+    epssPercLt: Optional[List[Epss]] = Field(None, description='EPSS percentile less than.')
 
 class Config(BaseModel):
     class Config:

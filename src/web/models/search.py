@@ -61,6 +61,10 @@ class SearchInputCve:
         cvss_v3_severity: Optional[CveSeverityV3] = Query(default=None, description="CVSS V3.x Severity to search", alias="cvss-severity-v3"),
         cvss_v2_metrics: Optional[str] = Query(default=None, description="CVSS V2.0 vector string to search for", alias="cvss-metrics-v2"),
         cvss_v3_metrics: Optional[str] = Query(default=None, description="CVSS V3.x vector string to search for", alias="cvss-metrics-v3"),
+        epss_score_gt: Optional[float] = Query(default=None, description="Greater EPSS score float to search for", alias="epss-score-gt"),
+        epss_score_lt: Optional[float] = Query(default=None, description="Less EPSS score float to search for", alias="epss-score-lt"),
+        epss_perc_gt: Optional[float] = Query(default=None, description="Greater EPSS percentile float to search for", alias="epss-perc-gt"),
+        epss_perc_lt: Optional[float] = Query(default=None, description="Less EPSS percentile float to search for", alias="epss-perc-lt"),
         vulnerable: Optional[bool] = Query(default=True, description="CVEs found by the CPEs that are marked as vulnerable", alias="vulnerable"),
         days: Optional[int] = Query(default=None, description="Number of days back when the CVEs were last modified", alias="days-back", ge=0),
 
@@ -77,6 +81,10 @@ class SearchInputCve:
         self.cvss_v3_severity = cvss_v3_severity
         self.cvss_v2_metrics = cvss_v2_metrics
         self.cvss_v3_metrics = cvss_v3_metrics
+        self.epss_Score_Gt = epss_score_gt
+        self.epss_Score_Lt = epss_score_lt
+        self.epss_Perc_Gt = epss_perc_gt
+        self.epss_Perc_Lt = epss_perc_lt
         self.vulnerable = vulnerable
         self.days = days
 
