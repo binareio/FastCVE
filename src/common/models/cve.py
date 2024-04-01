@@ -127,6 +127,7 @@ class CvssV31(BaseModel):
         None, description='CVSS subscore.'
     )
 
+
 class Node(BaseModel):
     """
     Defines a configuration node in an NVD applicability statement.
@@ -151,12 +152,13 @@ class Metrics(BaseModel):
     cvssMetricV31: Optional[List[CvssV31]] = Field(None, description='CVSS V3.1 score.')
     cvssMetricV30: Optional[List[CvssV30]] = Field(None, description='CVSS V3.0 score.')
     cvssMetricV2: Optional[List[CvssV2]] = Field(None, description='CVSS V2.0 score.')
-    epssScoreGt: Optional[confloat(ge=0.0, le=1.0)] = Field(None, descexitription='EPSS score greater than.')
+    epssScoreGt: Optional[confloat(ge=0.0, le=1.0)] = Field(None, description='EPSS score greater than.')
     epssScoreLt: Optional[confloat(ge=0.0, le=1.0)] = Field(None, description='EPSS score less than.')
     epssPercGt: Optional[confloat(ge=0.0, le=1.0)] = Field(None, description='EPSS percentile greater than.')
     epssPercLt: Optional[confloat(ge=0.0, le=1.0)] = Field(None, description='EPSS percentile less than.')
 
 
+class Config(BaseModel):
     class Config:
         extra = Extra.forbid
 
