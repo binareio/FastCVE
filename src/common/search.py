@@ -41,15 +41,15 @@ def search_cves(appctx: ApplicationContext, opts: SearchOptions):
         # prepare the search query
         query = session.query(cve_table)
         # Filter by EPSS score
-        if opts.epssScoreGt is not None:
+        if opts.epssScoreGt:
             query = query.filter(cast(cve_table.data['metrics']['epss']['score'].astext, Numeric) > opts.epssScoreGt)
-        if opts.epssScoreLt is not None:
+        if opts.epssScoreLt:
             query = query.filter(cast(cve_table.data['metrics']['epss']['score'].astext, Numeric) < opts.epssScoreLt)
 
         # Filter by EPSS percentile
-        if opts.epssPercGt is not None:
+        if opts.epssPercGt:
             query = query.filter(cast(cve_table.data['metrics']['epss']['percentile'].astext, Numeric) > opts.epssPercGt)
-        if opts.epssPercLt is not None:
+        if opts.epssPercLt:
             query = query.filter(cast(cve_table.data['metrics']['epss']['percentile'].astext, Numeric) < opts.epssPercLt)
 
         # filter by the cve IDS, either directly specified in the search options
