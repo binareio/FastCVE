@@ -128,6 +128,18 @@ class CvssV31(BaseModel):
     )
 
 
+class Epss(BaseModel):
+    class Config:
+        extra = Extra.forbid
+
+    score: Optional[confloat(ge=0.0, le=1.0)] = Field(
+        None, description='Epss score.'
+    )
+    percentile: Optional[confloat(ge=0.0, le=1.0)] = Field(
+        None, description='Epss percentile.'
+    )
+    date: Optional[date]= None
+
 class Node(BaseModel):
     """
     Defines a configuration node in an NVD applicability statement.
@@ -147,11 +159,13 @@ class Metrics(BaseModel):
     """
 
     class Config:
-        extra = Extra.forbid
+       extra = Extra.forbid
 
     cvssMetricV31: Optional[List[CvssV31]] = Field(None, description='CVSS V3.1 score.')
     cvssMetricV30: Optional[List[CvssV30]] = Field(None, description='CVSS V3.0 score.')
     cvssMetricV2: Optional[List[CvssV2]] = Field(None, description='CVSS V2.0 score.')
+    epss: Optional[Epss] = Field(None, description='EPSS details.')
+
 
 class Config(BaseModel):
     class Config:
