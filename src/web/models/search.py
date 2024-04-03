@@ -33,7 +33,7 @@ class StatusOutput(BaseModel):
     cve: Optional[StatusItemOutput]
     cpe: Optional[StatusItemOutput]
     cwe: Optional[StatusItemOutput]
-
+    epss: Optional[StatusItemOutput]
 
 class SearchInputCommon:
 
