@@ -83,6 +83,10 @@ class SearchOptions(BaseModel):
     cvssV3Metrics: Optional[str] = Field(default=None, description="CVSS V3.x vector string to search for", alias="cvss-metrics-v3")
     cvssV2Severity: Optional[CveSeverityV2] = Field(default=None, description="CVSS V2.0 Severity to search for", alias="cvss-severity-v2")
     cvssV3Severity: Optional[CveSeverityV3] = Field(default=None, description="CVSS V3.x Severity to search", alias="cvss-severity-v3")
+    epssScoreGt: Optional[float] = Field(default=None, description="Filter by EPSS score greater than", alias="epss-score-gt", ge=0)   # New field for EPSS score greater than
+    epssScoreLt: Optional[float] = Field(default=None, description="Filter by EPSS score less than", alias="epss-score-lt", ge=0)  # New field for EPSS score less than
+    epssPercGt: Optional[float] = Field(default=None, description="Filter by EPSS percentile greater than", alias="epss-perc-gt", ge=0)  # New field for EPSS percentile greater than
+    epssPercLt: Optional[float] = Field(default=None, description="Filter by EPSS percentile less than", alias="epss-perc-lt", ge=0) # New field for EPSS percentile less than
     lastModStartDate: Optional[date] = Field(default=None, description="Last modified start date", alias="last-mod-start-date")
     lastModEndDate: Optional[date] = Field(default=None, description="Last modified end date", alias="last-mod-end-date")
     pubStartDate: Optional[date] = Field(default=None, description="CVE Published start date", alias="pub-start-date")
@@ -93,10 +97,6 @@ class SearchOptions(BaseModel):
     days: Optional[int] = Field(default=None, description="Number of days back when the CVEs were last modified", alias="days-back", ge=0)
     deprecated: Optional[bool] = Field(default=False, description="If set to true, will fetch only the deprecated CPE names", alias="deprecated")
     profile: Optional[bool] = Field(default=None, description="Would also run the profile execution of the search and save the results in a file")
-    epssScoreGt: Optional[float] = Field(default=0, description="Filter by EPSS score greater than", alias="epss-score-gt", ge=0, le=1)   # New field for EPSS score greater than
-    epssScoreLt: Optional[float] = Field(default=1, description="Filter by EPSS score less than", alias="epss-score-lt", ge=0, le=1)  # New field for EPSS score less than
-    epssPercGt: Optional[float] = Field(default=0, description="Filter by EPSS percentile greater than", alias="epss-perc-gt", ge=0, le=1)  # New field for EPSS percentile greater than
-    epssPercLt: Optional[float] = Field(default=1, description="Filter by EPSS percentile less than", alias="epss-perc-lt", ge=0, le=1) # New field for EPSS percentile less than
     output: OutputType = Field(default=OutputType.json, description="Define the output format")
 
     class Config:

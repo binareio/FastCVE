@@ -138,8 +138,7 @@ class Epss(BaseModel):
     percentile: Optional[confloat(ge=0.0, le=1.0)] = Field(
         None, description='Epss percentile.'
     )
-    date: date
-
+    date: Optional[date]= None
 
 class Node(BaseModel):
     """
@@ -159,8 +158,8 @@ class Metrics(BaseModel):
     Metric scores for a vulnerability as found on NVD.
     """
 
-#    class Config:
-#        extra = Extra.forbid
+    class Config:
+       extra = Extra.forbid
 
     cvssMetricV31: Optional[List[CvssV31]] = Field(None, description='CVSS V3.1 score.')
     cvssMetricV30: Optional[List[CvssV30]] = Field(None, description='CVSS V3.0 score.')

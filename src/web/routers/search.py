@@ -65,15 +65,35 @@ async def search_cve(cmn_opts: SearchInputCommon = Depends(SearchInputCommon),
             cvssV3Severity=cve_opts.cvss_v3_severity,
             cvssV2Metrics=cve_opts.cvss_v2_metrics,
             cvssV3Metrics=cve_opts.cvss_v3_metrics,
-            epssScoreGt = cve_opts.epss_Score_Gt,
-            epssScoreLt = cve_opts.epss_Score_Lt,
-            epssPercGt = cve_opts.epss_Perc_Gt,
-            epssPercLt = cve_opts.epss_Perc_Lt,
+            epssScoreGt=cve_opts.epss_Score_Gt,
+            epssScoreLt=cve_opts.epss_Score_Lt,
+            epssPercGt=cve_opts.epss_Perc_Gt,
+            epssPercLt=cve_opts.epss_Perc_Lt,
             vulnerable=cve_opts.vulnerable,
             days=cve_opts.days
         )
     except PydanticValidationError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+    if (
+            cve_opts.cve_id is None
+            and cve_opts.cpe_name is None
+            and cve_opts.cwe_id is None
+            and cve_opts.last_mod_start_date is None
+            and cve_opts.last_mod_end_date is None
+            and cve_opts.pub_start_date is None
+            and cve_opts.pub_end_date is None
+            and cve_opts.cvss_v2_severity is None
+            and cve_opts.cvss_v3_severity is None
+            and cve_opts.cvss_v2_metrics is None
+            and cve_opts.cvss_v3_metrics is None
+            and cve_opts.epss_Score_Gt is None
+            and cve_opts.epss_Score_Lt is None
+            and cve_opts.epss_Perc_Gt is None
+            and cve_opts.epss_Perc_Lt is None
+            and cve_opts.days is None
+    ):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail='Please specify at least one parameter to search for')
+
     return search(appctx, opts)
 
 
