@@ -35,7 +35,7 @@ class Vuln(Base):
     __tablename__ = 'vuln'
     __table_args__ = (
         UniqueConstraint('vuln_id', name='vuln_uix_1'),
-        Index('vuln_idx1', 'description'),
+        Index('vuln_idx1', 'description', postgresql_using='gist'),
         {u'comment': u'Table that contains the list of Vulnerabilities'}
     )
 
