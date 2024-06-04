@@ -217,13 +217,14 @@ def fetch_data_feed(appctx, data_name, args):
     from datetime import date
 
     fetch_data_info = fetch_status(appctx, data_name, args)
+    last_modified_date = fetch_data_info['last_modified_date']
     if fetch_data_info and not args.full:
-        if data_name == 'epss' and fetch_data_info['last_modified_date'].date() != date.today()-timedelta(days=1):
+        if data_name == 'epss' and last_modified_date.date() != date.today()-timedelta(days=1):
             pass
         elif data_name == 'kev':
             pass
         else:
-            print(f"{data_name} data is already present. Loaded on {fetch_data_info['last_modified_date']}: {fetch_data_info['stats']['total_records']} records")
+            print(f"{data_name} data is already present. Loaded on {last_modified_date}: {fetch_data_info['stats']['total_records']} records")
             return
 
     # download the file
@@ -373,10 +374,10 @@ def fetch_data_feed(appctx, data_name, args):
         db_records = get_vdk_data(data_json)
         data_date = data_json.get('dateReleased').split(':')[0].split('T')[0]
 
-        if fetch_data_info['last_modified_date'].date() != datetime.strptime(data_date, '%Y-%m-%d').date():
+        if last_modified_date is None or last_modified_date.date() != datetime.strptime(data_date, '%Y-%m-%d').date():
             save_data_method = save_vdk_data
         else:
-            print(f"{data_name} data is already present. Loaded on {fetch_data_info['last_modified_date']}: {fetch_data_info['stats']['total_records']} records")
+            print(f"{data_name} data is already present. Loaded on {last_modified_date}: {fetch_data_info['stats']['total_records']} records")
             return
 
     else: raise ValidationError(f'Unknown data type to save: <{data_name}>')
