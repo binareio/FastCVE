@@ -225,8 +225,6 @@ def fetch_data_feed(appctx, data_name, args):
         else:
             print(f"{data_name} data is already present. Loaded on {fetch_data_info['last_modified_date']}: {fetch_data_info['stats']['total_records']} records")
             return
-    import pdb;
-    pdb.set_trace()
 
     # download the file
     data_url = appctx.config.get_param(f'fetch.url.{data_name}', None)
@@ -374,7 +372,7 @@ def fetch_data_feed(appctx, data_name, args):
 
         db_records = get_vdk_data(data_json)
         data_date = data_json.get('dateReleased').split(':')[0].split('T')[0]
-        import pdb;pdb.set_trace()
+
         if fetch_data_info['last_modified_date'].date() != datetime.strptime(data_date, '%Y-%m-%d').date():
             save_data_method = save_vdk_data
         else:
@@ -521,8 +519,6 @@ def save_vdk_data(appctx, args, db_records):
         bar_format = '{n_fmt}/{total} {l_bar}{bar}| ({elapsed}/{remaining})'
         db_insert_progress = tqdm(total=len(db_records), bar_format=f'{db_insert_progress_name:<20} {bar_format}',
                                   ascii=True)
-
-        # import pdb;pdb.set_trace()
 
         for batch_id in [list(db_records.keys())[i:i + BATCH_SIZE] for i in range(0, len(db_records), BATCH_SIZE)]:
             vuln_data= session.query(Vuln).filter(Vuln.vuln_id.in_(batch_id)).all()
@@ -815,7 +811,7 @@ def main():
     if 'cve' in args.data and 'kev' in args.data:
         args.data.remove('kev')
         args.data.append('kev')
-    import pdb;pdb.set_trace()
+
     # now we need to fetch the data from NVD/NIST/MITRE using the API and populate the DB
     for data in args.data:
         fetch_data(appctx, data, args)
