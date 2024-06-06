@@ -32,6 +32,8 @@ import concurrent.futures
 import logging
 import json
 from common.util import init_db_schema
+from common.util import drop_db
+
 
 SPLIT_BY_COLUMN = re.compile(r'(?<!\\):')
 BATCH_SIZE = 256
@@ -217,14 +219,13 @@ def fetch_data_feed(appctx, data_name, args):
     from datetime import date
 
     fetch_data_info = fetch_status(appctx, data_name, args)
-    last_modified_date = fetch_data_info['last_modified_date']
     if fetch_data_info and not args.full:
-        if data_name == 'epss' and last_modified_date.date() != date.today()-timedelta(days=1):
+        if data_name == 'epss' and fetch_data_info['last_modified_date'].date() != date.today()-timedelta(days=1):
             pass
         elif data_name == 'kev':
             pass
         else:
-            print(f"{data_name} data is already present. Loaded on {last_modified_date}: {fetch_data_info['stats']['total_records']} records")
+            print(f"{data_name} data is already present. Loaded on {fetch_data_info['last_modified_date']}: {fetch_data_info['stats']['total_records']} records")
             return
 
     # download the file
@@ -374,17 +375,23 @@ def fetch_data_feed(appctx, data_name, args):
         db_records = get_vdk_data(data_json)
         data_date = data_json.get('dateReleased').split(':')[0].split('T')[0]
 
-        if last_modified_date is None or last_modified_date.date() != datetime.strptime(data_date, '%Y-%m-%d').date():
+        if fetch_data_info is None or fetch_data_info['last_modified_date'].date() != datetime.strptime(data_date, '%Y-%m-%d').date():
             save_data_method = save_vdk_data
         else:
-            print(f"{data_name} data is already present. Loaded on {last_modified_date}: {fetch_data_info['stats']['total_records']} records")
+            print(f"{data_name} data is already present. Loaded on {fetch_data_info['last_modified_date']}: {fetch_data_info['stats']['total_records']} records")
             return
 
     else: raise ValidationError(f'Unknown data type to save: <{data_name}>')
 
-    # load into Cwe/Capec table
-    save_data_method(appctx, args, db_records)
+    # load into Cwe/Capec/Epss/Vuln table
+    count = save_data_method(appctx, args, db_records)
 
+    # if the count is less than # of kev records then ignore aadding to fetch_status
+    if count:
+        if count == 0:
+            print("load the cve data first!")
+        elif count< len(db_records):
+            return
     # Update the stats about retrieved information
     fetch_status(appctx, data_name, args, data=dict(to_date=data_date, total_proc_records=len(db_records)))
 
@@ -513,8 +520,8 @@ def fetch_epss_data(appctx, update_db, CVE_IDS = None):
 
 
 def save_vdk_data(appctx, args, db_records):
-    from sqlalchemy.orm import load_only
 
+    count = 0
     with appctx.db as session:
         db_insert_progress_name = 'Vuln db insert vdk'
         bar_format = '{n_fmt}/{total} {l_bar}{bar}| ({elapsed}/{remaining})'
@@ -525,9 +532,9 @@ def save_vdk_data(appctx, args, db_records):
             vuln_data= session.query(Vuln).filter(Vuln.vuln_id.in_(batch_id)).all()
 
             update_values = []
-            # insert_values = []
 
             for record in vuln_data:
+                count +=1
                 vdk_desired_row = db_records[record.vuln_id]
                 record.data['cisaRequiredAction'] = vdk_desired_row['cisaRequiredAction']
                 record.data['cisaVulnerabilityName'] = vdk_desired_row['cisaVulnerabilityName']
@@ -536,8 +543,10 @@ def save_vdk_data(appctx, args, db_records):
                 update_values.append({'id': record.id, 'data': record.data})
 
             session.bulk_update_mappings(Vuln, update_values)
+            db_insert_progress.update(len(vuln_data))
 
         db_insert_progress.close()
+    return count
 # ------------------------------------------------------------------------------
 
 
@@ -803,15 +812,14 @@ def main():
 
     validate_opts(args_dict)
 
-    # if 'cve' and 'epss' are specified, remove 'cve' and add it at the end. epss should be run first.
-    if 'cve' in args.data and 'epss' in args.data:
-        args.data.remove('cve')
-        args.data.append('cve')
-
-    # if 'cve' and 'kev' are specified, remove 'kev' and add it at the end. cve should be run first.
-    if 'cve' in args.data and 'kev' in args.data:
-        args.data.remove('kev')
-        args.data.append('kev')
+    # Ensure 'epss' runs first, followed by 'cve' (if present), and 'kev' runs last (if present).
+    if 'cve' in args.data:
+        if 'epss' in args.data:
+            args.data.remove('cve')
+            args.data.append('cve')
+        elif 'kev' in args.data:
+            args.data.remove('kev')
+            args.data.append('kev')
 
     # now we need to fetch the data from NVD/NIST/MITRE using the API and populate the DB
     for data in args.data:
