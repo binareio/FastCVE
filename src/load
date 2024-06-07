@@ -32,7 +32,6 @@ import concurrent.futures
 import logging
 import json
 from common.util import init_db_schema
-from common.util import drop_db
 
 
 SPLIT_BY_COLUMN = re.compile(r'(?<!\\):')
