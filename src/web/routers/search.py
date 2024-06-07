@@ -69,6 +69,7 @@ async def search_cve(cmn_opts: SearchInputCommon = Depends(SearchInputCommon),
             epssScoreLt=cve_opts.epss_Score_Lt,
             epssPercGt=cve_opts.epss_Perc_Gt,
             epssPercLt=cve_opts.epss_Perc_Lt,
+            exploitable=cve_opts.exploitable,
             vulnerable=cve_opts.vulnerable,
             days=cve_opts.days
         )

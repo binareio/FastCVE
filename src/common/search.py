@@ -52,6 +52,10 @@ def search_cves(appctx: ApplicationContext, opts: SearchOptions):
         if opts.epssPercLt:
             query = query.filter(cast(cve_table.data['metrics']['epss']['percentile'].astext, Numeric) < opts.epssPercLt)
 
+        # filter by presense of known_exploited_vulnerabilities
+        if opts.exploitable:
+            query = query.filter(cve_table.data.has_key('cisaExploitAdd'))
+
         # filter by the cve IDS, either directly specified in the search options
         if opts.cveId:
             cve_ids = list(map(lambda cve_id: cve_id.upper(), set(opts.cveId)))

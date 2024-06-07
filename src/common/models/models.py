@@ -87,6 +87,7 @@ class SearchOptions(BaseModel):
     epssScoreLt: Optional[float] = Field(default=None, description="Filter by EPSS score less than", alias="epss-score-lt", ge=0)  # New field for EPSS score less than
     epssPercGt: Optional[float] = Field(default=None, description="Filter by EPSS percentile greater than", alias="epss-perc-gt", ge=0)  # New field for EPSS percentile greater than
     epssPercLt: Optional[float] = Field(default=None, description="Filter by EPSS percentile less than", alias="epss-perc-lt", ge=0) # New field for EPSS percentile less than
+    exploitable: Optional[bool] = Field(default=False, description="If true, will fetch cve with kev info")
     lastModStartDate: Optional[date] = Field(default=None, description="Last modified start date", alias="last-mod-start-date")
     lastModEndDate: Optional[date] = Field(default=None, description="Last modified end date", alias="last-mod-end-date")
     pubStartDate: Optional[date] = Field(default=None, description="CVE Published start date", alias="pub-start-date")

@@ -65,6 +65,7 @@ class SearchInputCve:
         epss_score_lt: Optional[float] = Query(default=None, description="Less EPSS score float to search for", alias="epss-score-lt", ge=0, le=1),
         epss_perc_gt: Optional[float] = Query(default=None, description="Greater EPSS percentile float to search for", alias="epss-perc-gt", ge=0, le=1),
         epss_perc_lt: Optional[float] = Query(default=None, description="Less EPSS percentile float to search for", alias="epss-perc-lt", ge=0, le=1),
+        exploitable: Optional[bool] = Query(default=False, description="Known Exploited Vulnerabilities to search for", alias="exploitable"),
         vulnerable: Optional[bool] = Query(default=True, description="CVEs found by the CPEs that are marked as vulnerable", alias="vulnerable"),
         days: Optional[int] = Query(default=None, description="Number of days back when the CVEs were last modified", alias="days-back", ge=0),
 
@@ -85,6 +86,7 @@ class SearchInputCve:
         self.epss_Score_Lt = epss_score_lt
         self.epss_Perc_Gt = epss_perc_gt
         self.epss_Perc_Lt = epss_perc_lt
+        self.exploitable = exploitable
         self.vulnerable = vulnerable
         self.days = days
 
