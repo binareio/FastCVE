@@ -8,7 +8,6 @@ import pytest
 def test_cve_search_by_id(cli_runner):
     """Search CVEs by ID and requests output as ID"""
 
-    import pdb; pdb.set_trace()
     result = cli_runner.runcommand("docker exec fastcve search --search-info cve --cve CVE-1999-0001 --output id")
     assert result.returncode == 0
     assert result.stdout[:13] == 'CVE-1999-0001'

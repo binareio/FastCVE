@@ -40,7 +40,7 @@ def search(appctx: ApplicationContext, opts: SearchOptions) -> any:
 
 
 # ------------------------------------------------------------------------------
-@router.get("/cve", name="Search CVE", response_model=CveOutput)
+@router.get("/cve", name="Search CVE", response_model=CveOutput, response_model_exclude_unset=True)
 async def search_cve(cmn_opts: SearchInputCommon = Depends(SearchInputCommon),
                      cve_opts: SearchInputCve = Depends(SearchInputCve),
                      appctx: ApplicationContext = Depends(get_app_cntxt),
@@ -80,7 +80,7 @@ async def search_cve(cmn_opts: SearchInputCommon = Depends(SearchInputCommon),
 
 
 # ------------------------------------------------------------------------------
-@router.get("/cpe", name="Search CPE", response_model=CpeOutput)
+@router.get("/cpe", name="Search CPE", response_model=CpeOutput, response_model_exclude_unset=True)
 async def search_cpe(cmn_opts: SearchInputCommon = Depends(SearchInputCommon),
                      cpe_opts: SearchInputCpe = Depends(SearchInputCpe),
                      appctx: ApplicationContext = Depends(get_app_cntxt),

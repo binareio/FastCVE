@@ -177,7 +177,7 @@ class Config(BaseModel):
 
 class CveItem(BaseModel):
     class Config:
-        extra = Extra.forbid
+        extra = Extra.ignore
 
     id: constr(regex=r'^CVE-[0-9]{4}-[0-9]{4,}$')
     sourceIdentifier: Optional[str] = None
