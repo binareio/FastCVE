@@ -159,7 +159,7 @@ class Metrics(BaseModel):
     """
 
     class Config:
-       extra = Extra.forbid
+       extra = Extra.ignore
 
     cvssMetricV31: Optional[List[CvssV31]] = Field(None, description='CVSS V3.1 score.')
     cvssMetricV30: Optional[List[CvssV30]] = Field(None, description='CVSS V3.0 score.')
