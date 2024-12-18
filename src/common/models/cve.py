@@ -32,7 +32,7 @@ class Reference(BaseModel):
     class Config:
         extra = Extra.forbid
 
-    url: constr(regex=r'^(ftp|http)s?://\S+$', max_length=500)
+    url: str
     source: Optional[str] = None
     tags: Optional[List[str]] = None
 
