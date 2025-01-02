@@ -37,6 +37,31 @@ from common.models.cvss_v31 import (
     CiaRequirementType as CiaRequirementTypeV31,
     CveCvssDataModel as CveCvssV31,
 )
+from common.models.cvss_v40 import (
+    AttackVectorType as AttackVectorTypeV40,
+    AttackComplexityType as AttackComplexityTypeV40,
+    AttackRequirementsType as AttackRequirementsTypeV40,
+    PrivilegesRequiredType as PrivilegesRequiredTypeV40,
+    UserInteractionType as UserInteractionTypeV40,
+    VulnCiaType as VulnCiaTypeV40,
+    ModifiedAttackVectorType as ModifiedAttackVectorTypeV40,
+    ModifiedAttackComplexityType as ModifiedAttackComplexityTypeV40,
+    ModifiedAttackRequirementsType as ModifiedAttackRequirementsTypeV40,
+    ModifiedPrivilegesRequiredType as ModifiedPrivilegesRequiredTypeV40,
+    ModifiedUserInteractionType as ModifiedUserInteractionTypeV40,
+    ModifiedVulnCiaType as ModifiedVulnCiaTypeV40,
+    ModifiedSubCType as ModifiedSubCTypeV40,
+    ModifiedSubIaType as ModifiedSubIaTypeV40,
+    ExploitMaturityType as ExploitMaturityTypeV40,
+    CiaRequirementType as CiaRequirementTypeV40,
+    SafetyType as SafetyTypeV40,
+    automatableType as AutomatableTypeV40,
+    RecoveryType as RecoveryTypeV40,
+    ValueDensityType as ValueDensityTypeV40,
+    VulnerabilityResponseEffortType as VulnerabilityResponseEffortTypeV40,
+    ProviderUrgencyType as ProviderUrgencyTypeV40,
+    CveCvssDataModel as CveCvssV40,
+)
 
 from common.models.cvss_v30 import CveCvssDataModel as CveCvssV30
 
@@ -64,6 +89,12 @@ class CveSeverityV3(str, Enum):
     high = "high"
     critical = "critical"
 
+class CveSeverityV4(str, Enum):
+    low = "low"
+    medium = "medium"
+    high = "high"
+    critical = "critical"
+
 
 class OutputType(str, Enum):
     id = "id"
@@ -81,8 +112,10 @@ class SearchOptions(BaseModel):
     capecId: Optional[List[str]] = Field(default=None, description="Related CAPEC IDs to search for", alias="capec")
     cvssV2Metrics: Optional[str] = Field(default=None, description="CVSS V2.0 vector string to search for", alias="cvss-metrics-v2")
     cvssV3Metrics: Optional[str] = Field(default=None, description="CVSS V3.x vector string to search for", alias="cvss-metrics-v3")
+    cvssV4Metrics: Optional[str] = Field(default=None, description="CVSS V4.0 vector string to search for", alias="cvss-metrics-v4")
     cvssV2Severity: Optional[CveSeverityV2] = Field(default=None, description="CVSS V2.0 Severity to search for", alias="cvss-severity-v2")
     cvssV3Severity: Optional[CveSeverityV3] = Field(default=None, description="CVSS V3.x Severity to search", alias="cvss-severity-v3")
+    cvssV4Severity: Optional[CveSeverityV4] = Field(default=None, description="CVSS V4.0 Severity to search", alias="cvss-severity-v4")
     epssScoreGt: Optional[float] = Field(default=None, description="Filter by EPSS score greater than", alias="epss-score-gt", ge=0)   # New field for EPSS score greater than
     epssScoreLt: Optional[float] = Field(default=None, description="Filter by EPSS score less than", alias="epss-score-lt", ge=0)  # New field for EPSS score less than
     epssPercGt: Optional[float] = Field(default=None, description="Filter by EPSS percentile greater than", alias="epss-perc-gt", ge=0)  # New field for EPSS percentile greater than
@@ -188,15 +221,15 @@ metrics_mapping: dict = dict(
             N=TargetDistributionTypeV2.NONE, L=TargetDistributionTypeV2.LOW,
             H=TargetDistributionTypeV2.HIGH, ND=TargetDistributionTypeV2.NOT_DEFINED),
 
-        CR=dict(json_dict='[{"cvssData":{"confidentialityRequirement":"{value}"}}]',
+        CR=dict(json_dict='[{"cvssData":{"confidentialityRequirements":"{value}"}}]',
             L=CiaRequirementTypeV2.LOW, M=CiaRequirementTypeV2.MEDIUM,
             H=CiaRequirementTypeV2.HIGH, ND=CiaRequirementTypeV2.NOT_DEFINED),
 
-        IR=dict(json_dict='[{"cvssData":{"integrityRequirement":"{value}"}}]',
+        IR=dict(json_dict='[{"cvssData":{"integrityRequirements":"{value}"}}]',
             L=CiaRequirementTypeV2.LOW, M=CiaRequirementTypeV2.MEDIUM,
             H=CiaRequirementTypeV2.HIGH, ND=CiaRequirementTypeV2.NOT_DEFINED),
 
-        AR=dict(json_dict='[{"cvssData":{"availabilityRequirement":"{value}"}}]',
+        AR=dict(json_dict='[{"cvssData":{"availabilityRequirements":"{value}"}}]',
             L=CiaRequirementTypeV2.LOW, M=CiaRequirementTypeV2.MEDIUM,
             H=CiaRequirementTypeV2.HIGH, ND=CiaRequirementTypeV2.NOT_DEFINED)
     ),
@@ -244,18 +277,211 @@ metrics_mapping: dict = dict(
             X=ConfidenceTypeV31.NOT_DEFINED, C=ConfidenceTypeV31.CONFIRMED,
             R=ConfidenceTypeV31.REASONABLE, U=ConfidenceTypeV31.UNKNOWN),
 
-        CR=dict(json_dict='[{"cvssData":{"confidentialityRequirement":"{value}"}}]',
+        CR=dict(json_dict='[{"cvssData":{"confidentialityRequirements":"{value}"}}]',
             X=CiaRequirementTypeV31.NOT_DEFINED, L=CiaRequirementTypeV31.LOW,
             M=CiaRequirementTypeV31.MEDIUM, H=CiaRequirementTypeV31.HIGH),
 
-        IR=dict(json_dict='[{"cvssData":{"integrityRequirement":"{value}"}}]',
+        IR=dict(json_dict='[{"cvssData":{"integrityRequirements":"{value}"}}]',
             X=CiaRequirementTypeV31.NOT_DEFINED, L=CiaRequirementTypeV31.LOW,
             M=CiaRequirementTypeV31.MEDIUM, H=CiaRequirementTypeV31.HIGH),
 
-        AR=dict(json_dict='[{"cvssData":{"availabilityRequirement":"{value}"}}]',
+        AR=dict(json_dict='[{"cvssData":{"availabilityRequirements":"{value}"}}]',
             X=CiaRequirementTypeV31.NOT_DEFINED, L=CiaRequirementTypeV31.LOW,
             M=CiaRequirementTypeV31.MEDIUM, H=CiaRequirementTypeV31.HIGH),
     ),
+    # -------------------------------------------------------------------------
+    V40 = dict(
+        # Regex reference from the vectorString in the CveCvssV40 model
+        regex=CveCvssV40.__fields__['vectorString'].type_.regex,
+
+        AV=dict(
+            json_dict='[{"cvssData":{"attackVector":"{value}"}}]',
+            N=AttackVectorTypeV40.NETWORK, A=AttackVectorTypeV40.ADJACENT,
+            L=AttackVectorTypeV40.LOCAL, P=AttackVectorTypeV40.PHYSICAL,
+        ),
+
+        AC=dict(
+            json_dict='[{"cvssData":{"attackComplexity":"{value}"}}]',
+            L=AttackComplexityTypeV40.LOW, H=AttackComplexityTypeV40.HIGH,
+        ),
+
+        AT=dict(
+            json_dict='[{"cvssData":{"attackRequirements":"{value}"}}]',
+            N=AttackRequirementsTypeV40.NONE, P=AttackRequirementsTypeV40.PRESENT,
+        ),
+
+        PR=dict(
+            json_dict='[{"cvssData":{"privilegesRequired":"{value}"}}]',
+            N=PrivilegesRequiredTypeV40.NONE, L=PrivilegesRequiredTypeV40.LOW,
+            H=PrivilegesRequiredTypeV40.HIGH,
+        ),
+
+        UI=dict(
+            json_dict='[{"cvssData":{"userInteraction":"{value}"}}]',
+            N=UserInteractionTypeV40.NONE, P=UserInteractionTypeV40.PASSIVE,
+            A=UserInteractionTypeV40.ACTIVE,
+        ),
+
+        VC=dict(
+            json_dict='[{"cvssData":{"vulnerableSystemConfidentiality":"{value}"}}]',
+            H=VulnCiaTypeV40.HIGH, L=VulnCiaTypeV40.LOW, N=VulnCiaTypeV40.NONE,
+        ),
+
+        VI=dict(
+            json_dict='[{"cvssData":{"vulnerableSystemIntegrity":"{value}"}}]',
+            H=VulnCiaTypeV40.HIGH, L=VulnCiaTypeV40.LOW, N=VulnCiaTypeV40.NONE,
+        ),
+
+        VA=dict(
+            json_dict='[{"cvssData":{"vulnerableSystemAvailability":"{value}"}}]',
+            H=VulnCiaTypeV40.HIGH, L=VulnCiaTypeV40.LOW, N=VulnCiaTypeV40.NONE,
+        ),
+
+        SC=dict(
+            json_dict='[{"cvssData":{"subsequentSystemConfidentiality":"{value}"}}]',
+            H=VulnCiaTypeV40.HIGH, L=VulnCiaTypeV40.LOW, N=VulnCiaTypeV40.NONE,
+        ),
+
+        SI=dict(
+            json_dict='[{"cvssData":{"subsequentSystemIntegrity":"{value}"}}]',
+            H=VulnCiaTypeV40.HIGH, L=VulnCiaTypeV40.LOW, N=VulnCiaTypeV40.NONE,
+        ),
+
+        SA=dict(
+            json_dict='[{"cvssData":{"subsequentSystemAvailability":"{value}"}}]',
+            H=VulnCiaTypeV40.HIGH, L=VulnCiaTypeV40.LOW, N=VulnCiaTypeV40.NONE,
+        ),
+
+        E=dict(
+            json_dict='[{"cvssData":{"exploitMaturity":"{value}"}}]',
+            X=ExploitMaturityTypeV40.NOT_DEFINED, A=ExploitMaturityTypeV40.ATTACKED,
+            P=ExploitMaturityTypeV40.PROOF_OF_CONCEPT, U=ExploitMaturityTypeV40.UNREPORTED,
+        ),
+
+        CR=dict(
+            json_dict='[{"cvssData":{"confidentialityRequirements":"{value}"}}]',
+            X=CiaRequirementTypeV40.NOT_DEFINED, H=CiaRequirementTypeV40.HIGH,
+            M=CiaRequirementTypeV40.MEDIUM, L=CiaRequirementTypeV40.LOW,
+        ),
+
+        IR=dict(
+            json_dict='[{"cvssData":{"integrityRequirements":"{value}"}}]',
+            X=CiaRequirementTypeV40.NOT_DEFINED, H=CiaRequirementTypeV40.HIGH,
+            M=CiaRequirementTypeV40.MEDIUM, L=CiaRequirementTypeV40.LOW,
+        ),
+
+        AR=dict(
+            json_dict='[{"cvssData":{"availabilityRequirements":"{value}"}}]',
+            X=CiaRequirementTypeV40.NOT_DEFINED, H=CiaRequirementTypeV40.HIGH,
+            M=CiaRequirementTypeV40.MEDIUM, L=CiaRequirementTypeV40.LOW,
+        ),
+
+        MAV=dict(
+            json_dict='[{"cvssData":{"modifiedAttackVector":"{value}"}}]',
+            X=ModifiedAttackVectorTypeV40.NOT_DEFINED, N=ModifiedAttackVectorTypeV40.NETWORK,
+            A=ModifiedAttackVectorTypeV40.ADJACENT, L=ModifiedAttackVectorTypeV40.LOCAL,
+            P=ModifiedAttackVectorTypeV40.PHYSICAL,
+        ),
+
+        MAC=dict(
+            json_dict='[{"cvssData":{"modifiedAttackComplexity":"{value}"}}]',
+            X=ModifiedAttackComplexityTypeV40.NOT_DEFINED, L=ModifiedAttackComplexityTypeV40.LOW,
+            H=ModifiedAttackComplexityTypeV40.HIGH,
+        ),
+
+        MAT=dict(
+            json_dict='[{"cvssData":{"modifiedAttackRequirements":"{value}"}}]',
+            X=ModifiedAttackRequirementsTypeV40.NOT_DEFINED, N=ModifiedAttackRequirementsTypeV40.NONE,
+            P=ModifiedAttackRequirementsTypeV40.PRESENT,
+        ),
+
+        MPR=dict(
+            json_dict='[{"cvssData":{"modifiedPrivilegesRequired":"{value}"}}]',
+            X=ModifiedPrivilegesRequiredTypeV40.NOT_DEFINED, N=ModifiedPrivilegesRequiredTypeV40.NONE,
+            L=ModifiedPrivilegesRequiredTypeV40.LOW, H=ModifiedPrivilegesRequiredTypeV40.HIGH,
+        ),
+
+        MUI=dict(
+            json_dict='[{"cvssData":{"modifiedUserInteraction":"{value}"}}]',
+            X=ModifiedUserInteractionTypeV40.NOT_DEFINED, N=ModifiedUserInteractionTypeV40.NONE,
+            P=ModifiedUserInteractionTypeV40.PASSIVE, A=ModifiedUserInteractionTypeV40.ACTIVE,
+        ),
+
+        MVC=dict(
+            json_dict='[{"cvssData":{"modifiedvulnerableSystemConfidentiality":"{value}"}}]',
+            X=ModifiedVulnCiaTypeV40.NOT_DEFINED, H=ModifiedVulnCiaTypeV40.HIGH,
+            L=ModifiedVulnCiaTypeV40.LOW, N=ModifiedVulnCiaTypeV40.NONE,
+        ),
+
+        MVI=dict(
+            json_dict='[{"cvssData":{"modifiedvulnerableSystemIntegrity":"{value}"}}]',
+            X=ModifiedVulnCiaTypeV40.NOT_DEFINED, H=ModifiedVulnCiaTypeV40.HIGH,
+            L=ModifiedVulnCiaTypeV40.LOW, N=ModifiedVulnCiaTypeV40.NONE,
+        ),
+
+        MVA=dict(
+            json_dict='[{"cvssData":{"modifiedvulnerableSystemAvailability":"{value}"}}]',
+            X=ModifiedVulnCiaTypeV40.NOT_DEFINED, H=ModifiedVulnCiaTypeV40.HIGH,
+            L=ModifiedVulnCiaTypeV40.LOW, N=ModifiedVulnCiaTypeV40.NONE,
+        ),
+
+        MSC=dict(
+            json_dict='[{"cvssData":{"modifiedsubsequentSystemConfidentiality":"{value}"}}]',
+            X=ModifiedSubCTypeV40.NOT_DEFINED, N=ModifiedSubCTypeV40.NEGLIGIBLE,
+            L=ModifiedSubCTypeV40.LOW, H=ModifiedSubCTypeV40.HIGH,
+        ),
+
+        MSI=dict(
+            json_dict='[{"cvssData":{"modifiedsubsequentSystemIntegrity":"{value}"}}]',
+            X=ModifiedSubIaTypeV40.NOT_DEFINED, N=ModifiedSubIaTypeV40.NEGLIGIBLE,
+            L=ModifiedSubIaTypeV40.LOW, H=ModifiedSubIaTypeV40.HIGH,
+            S=ModifiedSubIaTypeV40.SAFETY,
+        ),
+
+        MSA=dict(
+            json_dict='[{"cvssData":{"modifiedSubsequentSystemAvailability":"{value}"}}]',
+            X=ModifiedSubIaTypeV40.NOT_DEFINED, N=ModifiedSubIaTypeV40.NEGLIGIBLE,
+            L=ModifiedSubIaTypeV40.LOW, H=ModifiedSubIaTypeV40.HIGH,
+            S=ModifiedSubIaTypeV40.SAFETY,
+        ),
+
+        S=dict(
+            json_dict='[{"cvssData":{"safety":"{value}"}}]',
+            X=SafetyTypeV40.NOT_DEFINED, N=SafetyTypeV40.NEGLIGIBLE,
+            P=SafetyTypeV40.PRESENT,
+        ),
+
+        AU=dict(
+            json_dict='[{"cvssData":{"automatable":"{value}"}}]',
+            X=AutomatableTypeV40.NOT_DEFINED, N=AutomatableTypeV40.NO,
+            Y=AutomatableTypeV40.YES,
+        ),
+
+        R=dict(
+            json_dict='[{"cvssData":{"recovery":"{value}"}}]',
+            X=RecoveryTypeV40.NOT_DEFINED, A=RecoveryTypeV40.AUTOMATIC,
+            U=RecoveryTypeV40.USER, I=RecoveryTypeV40.IRRECOVERABLE,
+        ),
+
+        V=dict(
+            json_dict='[{"cvssData":{"valueDensity":"{value}"}}]',
+            X=ValueDensityTypeV40.NOT_DEFINED, D=ValueDensityTypeV40.DIFFUSE,
+            C=ValueDensityTypeV40.CONCENTRATED,
+        ),
+
+        RE=dict(
+            json_dict='[{"cvssData":{"vulnerabilityResponseEffort":"{value}"}}]',
+            X=VulnerabilityResponseEffortTypeV40.NOT_DEFINED, L=VulnerabilityResponseEffortTypeV40.LOW,
+            M=VulnerabilityResponseEffortTypeV40.MODERATE, H=VulnerabilityResponseEffortTypeV40.HIGH,
+        ),
+
+        U=dict(
+            json_dict='[{"cvssData":{"providerUrgency":"{value}"}}]',
+            X=ProviderUrgencyTypeV40.NOT_DEFINED, Clear=ProviderUrgencyTypeV40.CLEAR,
+            Green=ProviderUrgencyTypeV40.GREEN, Amber=ProviderUrgencyTypeV40.AMBER,
+            Red=ProviderUrgencyTypeV40.RED,
+        ),
+    )
 )
 metrics_mapping['V30'] = dict(
     regex=CveCvssV30.__fields__['vectorString'].type_.regex,

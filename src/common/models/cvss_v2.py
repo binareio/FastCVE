@@ -107,7 +107,7 @@ class CveCvssDataModel(BaseModel):
     temporalScore: Optional[confloat(ge=0.0, le=10.0)] = None
     collateralDamagePotential: Optional[CollateralDamagePotentialType] = None
     targetDistribution: Optional[TargetDistributionType] = None
-    confidentialityRequirement: Optional[CiaRequirementType] = None
-    integrityRequirement: Optional[CiaRequirementType] = None
-    availabilityRequirement: Optional[CiaRequirementType] = None
+    confidentialityRequirements: Optional[CiaRequirementType] = None
+    integrityRequirements: Optional[CiaRequirementType] = None
+    availabilityRequirements: Optional[CiaRequirementType] = None
     environmentalScore: Optional[confloat(ge=0.0, le=10.0)] = None

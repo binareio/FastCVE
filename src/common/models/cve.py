@@ -13,6 +13,7 @@ from pydantic import BaseModel, Extra, Field, confloat, constr
 from .cvss_v2 import CveCvssDataModel as CveCvssDataV2
 from .cvss_v30 import CveCvssDataModel as CveCvssDataV30
 from .cvss_v31 import CveCvssDataModel as CveCvssDataV31
+from .cvss_v40 import CveCvssDataModel as CveCvssDataV40
 
 
 class Type(Enum):
@@ -127,6 +128,14 @@ class CvssV31(BaseModel):
         None, description='CVSS subscore.'
     )
 
+class CvssV40(BaseModel):
+    class Config:
+        extra = Extra.forbid
+
+    source: str
+    type: Type
+    cvssData: CveCvssDataV40
+
 
 class Epss(BaseModel):
     class Config:
@@ -161,6 +170,7 @@ class Metrics(BaseModel):
     class Config:
        extra = Extra.forbid
 
+    cvssMetricV40: Optional[List[CvssV40]] = Field(None, description='CVSS V4.0 score.')
     cvssMetricV31: Optional[List[CvssV31]] = Field(None, description='CVSS V3.1 score.')
     cvssMetricV30: Optional[List[CvssV30]] = Field(None, description='CVSS V3.0 score.')
     cvssMetricV2: Optional[List[CvssV2]] = Field(None, description='CVSS V2.0 score.')

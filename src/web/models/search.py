@@ -9,7 +9,7 @@ from typing import List, Optional
 from datetime import datetime, date
 from common.models.cve import CveItem
 from common.models.cpe import CpeItem
-from common.models import CveSeverityV2, CveSeverityV3
+from common.models import CveSeverityV2, CveSeverityV3, CveSeverityV4
 
 
 class CveOutput(BaseModel):
@@ -59,8 +59,10 @@ class SearchInputCve:
         pub_end_date: Optional[date] = Query(default=None, description="CVE Published start date", alias="pub-end-date"),
         cvss_v2_severity: Optional[CveSeverityV2] = Query(default=None, description="CVSS V2.0 Severity to search for", alias="cvss-severity-v2"),
         cvss_v3_severity: Optional[CveSeverityV3] = Query(default=None, description="CVSS V3.x Severity to search", alias="cvss-severity-v3"),
+        cvss_v4_severity: Optional[CveSeverityV4] = Query(default=None, description="CVSS V4.0 Severity to search", alias="cvss-severity-v4"),
         cvss_v2_metrics: Optional[str] = Query(default=None, description="CVSS V2.0 vector string to search for", alias="cvss-metrics-v2"),
         cvss_v3_metrics: Optional[str] = Query(default=None, description="CVSS V3.x vector string to search for", alias="cvss-metrics-v3"),
+        cvss_v4_metrics: Optional[str] = Query(default=None, description="CVSS V4.0 vector string to search for", alias="cvss-metrics-v4"),
         epss_score_gt: Optional[float] = Query(default=None, description="Greater EPSS score float to search for", alias="epss-score-gt", ge=0, le=1),
         epss_score_lt: Optional[float] = Query(default=None, description="Less EPSS score float to search for", alias="epss-score-lt", ge=0, le=1),
         epss_perc_gt: Optional[float] = Query(default=None, description="Greater EPSS percentile float to search for", alias="epss-perc-gt", ge=0, le=1),
@@ -80,8 +82,10 @@ class SearchInputCve:
         self.pub_end_date = pub_end_date
         self.cvss_v2_severity = cvss_v2_severity
         self.cvss_v3_severity = cvss_v3_severity
+        self.cvss_v4_severity = cvss_v4_severity
         self.cvss_v2_metrics = cvss_v2_metrics
         self.cvss_v3_metrics = cvss_v3_metrics
+        self.cvss_v4_metrics = cvss_v4_metrics
         self.epss_Score_Gt = epss_score_gt
         self.epss_Score_Lt = epss_score_lt
         self.epss_Perc_Gt = epss_perc_gt

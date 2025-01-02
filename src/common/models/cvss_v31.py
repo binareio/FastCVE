@@ -150,9 +150,9 @@ class CveCvssDataModel(BaseModel):
     reportConfidence: Optional[ConfidenceType] = None
     temporalScore: Optional[confloat(ge=0.0, le=10.0)] = None
     temporalSeverity: Optional[SeverityType] = None
-    confidentialityRequirement: Optional[CiaRequirementType] = None
-    integrityRequirement: Optional[CiaRequirementType] = None
-    availabilityRequirement: Optional[CiaRequirementType] = None
+    confidentialityRequirements: Optional[CiaRequirementType] = None
+    integrityRequirements: Optional[CiaRequirementType] = None
+    availabilityRequirements: Optional[CiaRequirementType] = None
     modifiedAttackVector: Optional[ModifiedAttackVectorType] = None
     modifiedAttackComplexity: Optional[ModifiedAttackComplexityType] = None
     modifiedPrivilegesRequired: Optional[ModifiedPrivilegesRequiredType] = None
