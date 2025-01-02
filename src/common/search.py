@@ -98,7 +98,7 @@ def search_cves(appctx: ApplicationContext, opts: SearchOptions):
             )
             query = query.filter(qry_cvss_severity_cond)
 
-        # add filter condition on cvss V2 severity
+        # add filter condition on cvss V4 severity
         if opts.cvssV4Severity:
             query = query.filter(cve_table.data['metrics']['cvssMetricV40'].contains([{"cvssData": {"baseSeverity": opts.cvssV4Severity.value.upper()}}]))
 

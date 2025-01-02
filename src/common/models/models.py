@@ -55,7 +55,7 @@ from common.models.cvss_v40 import (
     ExploitMaturityType as ExploitMaturityTypeV40,
     CiaRequirementType as CiaRequirementTypeV40,
     SafetyType as SafetyTypeV40,
-    automatableType as AutomatableTypeV40,
+    AutomatableType as AutomatableTypeV40,
     RecoveryType as RecoveryTypeV40,
     ValueDensityType as ValueDensityTypeV40,
     VulnerabilityResponseEffortType as VulnerabilityResponseEffortTypeV40,

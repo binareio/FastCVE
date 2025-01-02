@@ -125,7 +125,7 @@ class SafetyType(Enum):
     NOT_DEFINED = 'NOT_DEFINED'
 
 
-class automatableType(Enum):
+class AutomatableType(Enum):
     NO = 'NO'
     YES = 'YES'
     NOT_DEFINED = 'NOT_DEFINED'
@@ -259,7 +259,7 @@ class CveCvssDataModel(BaseModel):
     modifiedSubsequentSystemIntegrity: Optional[ModifiedSubIaType] = 'NOT_DEFINED'
     modifiedSubsequentSystemAvailability: Optional[ModifiedSubIaType] = 'NOT_DEFINED'
     safety: Optional[SafetyType] = 'NOT_DEFINED'
-    automatable: Optional[automatableType] = 'NOT_DEFINED'
+    automatable: Optional[AutomatableType] = 'NOT_DEFINED'
     recovery: Optional[RecoveryType] = 'NOT_DEFINED'
     valueDensity: Optional[ValueDensityType] = 'NOT_DEFINED'
     vulnerabilityResponseEffort: Optional[

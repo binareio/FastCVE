@@ -109,7 +109,7 @@
           "enum": [ "NEGLIGIBLE", "PRESENT", "NOT_DEFINED" ],
           "default": "NOT_DEFINED"
       },
-      "automatableType": {
+      "AutomatableType": {
           "type": "string",
           "enum": [ "NO", "YES", "NOT_DEFINED" ],
           "default": "NOT_DEFINED"
@@ -216,7 +216,7 @@
       "modifiedsubsequentSystemIntegrity":         { "$ref": "#/definitions/modifiedSubIaType" },
       "modifiedSubsequentSystemAvailability":      { "$ref": "#/definitions/modifiedSubIaType" },
       "safety":                         { "$ref": "#/definitions/safetyType" },
-      "automatable":                    { "$ref": "#/definitions/automatableType" },
+      "automatable":                    { "$ref": "#/definitions/AutomatableType" },
       "recovery":                       { "$ref": "#/definitions/recoveryType" },
       "valueDensity":                   { "$ref": "#/definitions/valueDensityType" },
       "vulnerabilityResponseEffort":    { "$ref": "#/definitions/vulnerabilityResponseEffortType" },
