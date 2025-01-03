@@ -202,7 +202,7 @@ class CveItem(BaseModel):
     cisaRequiredAction: Optional[str] = None
     cisaVulnerabilityName: Optional[str] = None
     descriptions: List[LangString] = Field(..., min_items=1)
-    references: List[Reference] = Field(..., max_items=500, min_items=0)
+    references: List[Reference] = Field(..., max_items=2000, min_items=0)
     metrics: Optional[Metrics] = Field(
         None, description='Metric scores for a vulnerability as found on NVD.'
     )
