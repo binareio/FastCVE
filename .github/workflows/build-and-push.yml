@@ -1,0 +1,65 @@
+name: Auto Push Docker Image
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-update-docker:
+    runs-on: ubuntu-latest
+    steps:
+      # Step 1: Check out the repository
+      - name: Check out repository
+        uses: actions/checkout@v3
+
+      # Step 2: Log in to Docker Hub
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+
+      # Step 3: Set up Docker Buildx
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      # Step 4: Build Docker Image with release and latest tags
+      - name: Build Docker Image
+        run: |
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/fastcve:${{ github.ref_name }} \
+                       -t ${{ secrets.DOCKER_USERNAME }}/fastcve:latest .
+
+      # Step 5: Push Docker Image for both tags
+      - name: Push Docker Image
+        run: |
+          docker push ${{ secrets.DOCKER_USERNAME }}/fastcve:${{ github.ref_name }}
+          docker push ${{ secrets.DOCKER_USERNAME }}/fastcve:latest
+
+      # Step 6: Check if README.md file exists
+      - name: Check README.md file exists
+        id: check_readme
+        run: |
+          if [ -f "README.md" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      # Step 7: Update Docker Hub description with README.md content (if exists)
+      - name: Update Docker Hub description
+        if: ${{ steps.check_readme.outputs.exists == 'true' }}
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
+          REPO: fastcve
+        run: |
+          # Prepare the README content for JSON payload
+          README_CONTENT=$(jq -sR '.' README.md)
+
+          # Use Docker Hub API to update the README
+          curl -s -X PATCH "https://hub.docker.com/v2/repositories/${DOCKER_USERNAME}/${REPO}/" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${DOCKER_TOKEN}" \
+            -d "{\"full_description\": ${README_CONTENT}}"
+

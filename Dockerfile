@@ -1,4 +1,4 @@
-FROM postgres:13.4-alpine
+FROM postgres:16.8-alpine3.20
 
 ENV FCDB_HOME=/fastcve FCDB_NAME=vuln_db POSTGRES_PASSWORD=POSTGRES_PASSWORD FCDB_USER= FCDB_PASS=
 ENV PATH $PATH:${FCDB_HOME}
@@ -9,7 +9,7 @@ WORKDIR ${FCDB_HOME}
 
 COPY ./src/config/requirements.txt /tmp
 
-RUN pip install -r /tmp/requirements.txt
+RUN pip install --break-system-packages -r /tmp/requirements.txt
 
 COPY ./docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 COPY ./start_web.sh /always-init.d/start_web.sh
