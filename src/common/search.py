@@ -12,7 +12,7 @@ Copyright (c) 2020 to date, Binare Oy (license@binare.io) All rights reserved.
 import re
 import json
 from typing import List, Iterator
-from sqlalchemy import Boolean,  cast, Numeric
+from sqlalchemy import Boolean,  cast, Numeric, select
 from sqlalchemy.sql import text, expression
 from sqlalchemy.orm import aliased
 from generic import ApplicationContext
@@ -39,56 +39,56 @@ def search_cves(appctx: ApplicationContext, opts: SearchOptions):
     with appctx.db as session:
 
         # prepare the search query
-        query = session.query(cve_table)
+        query = select(cve_table)
         # Filter by EPSS score
         if opts.epssScoreGt:
-            query = query.filter(cast(cve_table.data['metrics']['epss']['score'].astext, Numeric) > opts.epssScoreGt)
+            query = query.where(cast(cve_table.data['metrics']['epss']['score'].astext, Numeric) > opts.epssScoreGt)
         if opts.epssScoreLt:
-            query = query.filter(cast(cve_table.data['metrics']['epss']['score'].astext, Numeric) < opts.epssScoreLt)
+            query = query.where(cast(cve_table.data['metrics']['epss']['score'].astext, Numeric) < opts.epssScoreLt)
 
         # Filter by EPSS percentile
         if opts.epssPercGt:
-            query = query.filter(cast(cve_table.data['metrics']['epss']['percentile'].astext, Numeric) > opts.epssPercGt)
+            query = query.where(cast(cve_table.data['metrics']['epss']['percentile'].astext, Numeric) > opts.epssPercGt)
         if opts.epssPercLt:
-            query = query.filter(cast(cve_table.data['metrics']['epss']['percentile'].astext, Numeric) < opts.epssPercLt)
+            query = query.where(cast(cve_table.data['metrics']['epss']['percentile'].astext, Numeric) < opts.epssPercLt)
 
         # filter by presense of known_exploited_vulnerabilities
         if opts.exploitable:
-            query = query.filter(cve_table.data.has_key('cisaExploitAdd'))
+            query = query.where(cve_table.data.has_key('cisaExploitAdd'))
 
-        # filter by the cve IDS, either directly specified in the search options
+        # where by the cve IDS, either directly specified in the search options
         if opts.cveId:
             cve_ids = list(map(lambda cve_id: cve_id.upper(), set(opts.cveId)))
-            query = query.filter(cve_table.vuln_id.in_(cve_ids))
+            query = query.where(cve_table.vuln_id.in_(cve_ids))
 
         # or via the cpe 2.3
         if opts.cpeName:
             cve_ids = search_cves_by_cpes(appctx, opts)
             # if we got CVE IDs from the CPE 2.3 search, we need to filter the results
             if cve_ids:
-                query = query.filter(cve_table.vuln_id.in_(cve_ids))
+                query = query.where(cve_table.vuln_id.in_(cve_ids))
             # otherwise it means that there are no CVE IDs from the CPE 2.3 search
             # thus the query needs to return no records
             else:
-                query = query.filter(1 == 0)
+                query = query.where(1 == 0)
 
         # filter by the keyword search (regex)
         if opts.keywordSearch:
             for idx in range(0, len(opts.keywordSearch)):
                 keyword = opts.keywordSearch[idx]
-                query = query.filter(text(f'cve_table.description ~* :keyword{idx}').params(**{f'keyword{idx}': keyword}))
+                query = query.where(text(f'cve_table.description ~* :keyword{idx}').params(**{f'keyword{idx}': keyword}))
 
         # add filter condition on last modified date
-        if opts.lastModStartDate: query = query.filter(cve_table.last_modified_date >= opts.lastModStartDate)
-        if opts.lastModEndDate: query = query.filter(cve_table.last_modified_date <= opts.lastModEndDate)
+        if opts.lastModStartDate: query = query.where(cve_table.last_modified_date >= opts.lastModStartDate)
+        if opts.lastModEndDate: query = query.where(cve_table.last_modified_date <= opts.lastModEndDate)
 
         # add filter condition on published date
-        if opts.pubStartDate: query = query.filter(cve_table.published_date >= opts.pubStartDate)
-        if opts.pubEndDate: query = query.filter(cve_table.published_date <= opts.pubEndDate)
+        if opts.pubStartDate: query = query.where(cve_table.published_date >= opts.pubStartDate)
+        if opts.pubEndDate: query = query.where(cve_table.published_date <= opts.pubEndDate)
 
         # add filter condition on cvss V2 severity
         if opts.cvssV2Severity:
-            query = query.filter(cve_table.data['metrics']['cvssMetricV2'].contains([{"baseSeverity": opts.cvssV2Severity.value.upper()}]))
+            query = query.where(cve_table.data['metrics']['cvssMetricV2'].contains([{"baseSeverity": opts.cvssV2Severity.value.upper()}]))
 
         # add filter condition on cvss V3 severity
         if opts.cvssV3Severity:
@@ -96,25 +96,25 @@ def search_cves(appctx: ApplicationContext, opts: SearchOptions):
                 cve_table.data['metrics']['cvssMetricV30'].contains([{"cvssData": {"baseSeverity": opts.cvssV3Severity.value.upper()}}]),
                 cve_table.data['metrics']['cvssMetricV31'].contains([{"cvssData": {"baseSeverity": opts.cvssV3Severity.value.upper()}}])
             )
-            query = query.filter(qry_cvss_severity_cond)
+            query = query.where(qry_cvss_severity_cond)
 
         # add filter condition on cvss V4 severity
         if opts.cvssV4Severity:
-            query = query.filter(cve_table.data['metrics']['cvssMetricV40'].contains([{"cvssData": {"baseSeverity": opts.cvssV4Severity.value.upper()}}]))
+            query = query.where(cve_table.data['metrics']['cvssMetricV40'].contains([{"cvssData": {"baseSeverity": opts.cvssV4Severity.value.upper()}}]))
 
         # add filter condition on CWE ID
         if opts.cweId:
-            cwe_ids = list(map(lambda cwe: re.sub('^\D*','CWE-', cwe), opts.cweId))
+            cwe_ids = list(map(lambda cwe: re.sub(r'^\D*','CWE-', cwe), opts.cweId))
             cwe_id_search_arrays_str = ', '.join([f'\'[{{"description":[{{"value": "{cwe_id}"}}]}}]\'::jsonb' for cwe_id in cwe_ids])
-            query = query.filter(text(f"cve_table.data->'weaknesses' @> ANY(ARRAY[{cwe_id_search_arrays_str}])"))
+            query = query.where(text(f"cve_table.data->'weaknesses' @> ANY(ARRAY[{cwe_id_search_arrays_str}])"))
 
         # add the filter for cvss metrics
         if opts.cvssV2Metrics:
             for metric in get_cvss_metric_conditions(opts.cvssV2Metrics, 'V2'):
-                query = query.filter(cve_table.data['metrics']['cvssMetricV2'].contains(metric))
+                query = query.where(cve_table.data['metrics']['cvssMetricV2'].contains(metric))
 
         if opts.cvssV3Metrics:
-            query = query.filter(
+            query = query.where(
                 expression.or_(
                     expression.and_(*[cve_table.data['metrics']['cvssMetricV30'].contains(cond)
                                     for cond in get_cvss_metric_conditions('CVSS:3.0/' + opts.cvssV3Metrics, 'V30')]),
@@ -124,14 +124,14 @@ def search_cves(appctx: ApplicationContext, opts: SearchOptions):
             )
 
         if opts.cvssV4Metrics:
-            query = query.filter(
+            query = query.where(
                 expression.and_(*[cve_table.data['metrics']['cvssMetricV40'].contains(cond)
                                 for cond in get_cvss_metric_conditions('CVSS:4.0/' + opts.cvssV4Metrics, 'V40')])
             )
 
         # add the pagination
         query = query.offset(opts.pageIdx * opts.pageSize).limit(opts.pageSize)
-        result = dict(search=get_non_empty_opts(opts), result=[item.data for item in query.all()])
+        result = dict(search=get_non_empty_opts(opts), result=[item.data for item in session.scalars(query).all()])
 
     return result
 
@@ -178,7 +178,7 @@ def get_vuln_cpes(appctx: ApplicationContext, cpes: List[str], vulnerable: bool 
             if search_cpe_parts['product'] == '*' and search_cpe_parts['version'] == '*':
                 raise ValidationError('Please specify at least product in the CPE')
 
-            query = session.query(cve_cpe_config)
+            query = select(cve_cpe_config)
             for cpe_item in cpe_items.keys():
 
                 # if we need to search by the particular item
@@ -197,7 +197,7 @@ def get_vuln_cpes(appctx: ApplicationContext, cpes: List[str], vulnerable: bool 
                                 text("ver_pad(coalesce(cve_cpe_config.version_le, 'zzzzzzz'), 7) >= ver_pad(:ver, 7)")
                             )
                         )
-                        query = query.filter(qry_ver_cond).params(ver=search_cpe_parts[cpe_item])
+                        query = query.where(qry_ver_cond).params(ver=search_cpe_parts[cpe_item])
 
                     # and for the rest parts we search the same way
                     # AND (column = input OR column = '*')
@@ -205,15 +205,15 @@ def get_vuln_cpes(appctx: ApplicationContext, cpes: List[str], vulnerable: bool 
                         # in case vendor was specified as '*' we make a stricted search on product
                         # as there are configurations where only vendor is specified in the CPE while the product is '*'
                         if cpe_item == 'product' and search_cpe_parts['vendor'] == '*':
-                            query = query.filter(expression.or_(getattr(cve_cpe_config, cpe_item) == search_cpe_parts[cpe_item]))
+                            query = query.where(expression.or_(getattr(cve_cpe_config, cpe_item) == search_cpe_parts[cpe_item]))
                         else:
-                            query = query.filter(expression.or_(getattr(cve_cpe_config, cpe_item) == search_cpe_parts[cpe_item],
+                            query = query.where(expression.or_(getattr(cve_cpe_config, cpe_item) == search_cpe_parts[cpe_item],
                                                                 getattr(cve_cpe_config, cpe_item) == '*'))
 
             if vulnerable:
-                query = query.filter(cve_cpe_config.vulnerable == True)
+                query = query.where(cve_cpe_config.vulnerable == True)
 
-            result[search_cpe] = [{key: getattr(row, key) for key in cve_cpe_config_cols} for row in query.all()]
+            result[search_cpe] = [{key: getattr(row, key) for key in cve_cpe_config_cols} for row in session.scalars(query).all()]
 
     return result
 
@@ -246,26 +246,26 @@ def search_cpes(appctx: ApplicationContext, opts: SearchOptions):
 
     with appctx.db as session:
 
-        query = session.query(cpe_table)
+        query = select(cpe_table)
 
         # add filter condition on the keywords search
         if opts.keywordSearch:
 
             for idx, keyword in enumerate(opts.keywordSearch):
-                query = query.filter(text(f'cpe_table.title_en ~* :keyword{idx}').params(**{f'keyword{idx}':keyword}))
+                query = query.where(text(f'cpe_table.title_en ~* :keyword{idx}').params(**{f'keyword{idx}':keyword}))
 
         # add filter condition on last modified date
         if opts.lastModStartDate:
-            query = query.filter(cpe_table.last_modified_date >= opts.lastModStartDate)
+            query = query.where(cpe_table.last_modified_date >= opts.lastModStartDate)
 
         if opts.lastModEndDate:
-            query = query.filter(cpe_table.last_modified_date <= opts.lastModEndDate)
+            query = query.where(cpe_table.last_modified_date <= opts.lastModEndDate)
 
         # add filter condition for the deprecated part
         if opts.deprecated:
-            query = query.filter(cpe_table.data['deprecated'].astext.cast(Boolean) == True)
+            query = query.where(cpe_table.data['deprecated'].astext.cast(Boolean) == True)
         else:
-            query = query.filter(cpe_table.data['deprecated'].astext.cast(Boolean) == False)
+            query = query.where(cpe_table.data['deprecated'].astext.cast(Boolean) == False)
 
         # add filter condition for the cpe 23 part
         if opts.cpeName:
@@ -284,13 +284,13 @@ def search_cpes(appctx: ApplicationContext, opts: SearchOptions):
                 # if we need to search by the particular item
                 if search_cpe_parts[cpe_item] and search_cpe_parts[cpe_item] != '*':
                     if cpe_item == 'product' and search_cpe_parts['vendor'] == '*':
-                        query = query.filter(getattr(cpe_table, cpe_item).like(search_cpe_parts[cpe_item].replace('*', '%')))
+                        query = query.where(getattr(cpe_table, cpe_item).like(search_cpe_parts[cpe_item].replace('*', '%')))
                     else:
-                        query = query.filter(expression.or_(getattr(cpe_table, cpe_item).like(search_cpe_parts[cpe_item].replace('*', '%')),
+                        query = query.where(expression.or_(getattr(cpe_table, cpe_item).like(search_cpe_parts[cpe_item].replace('*', '%')),
                                                             getattr(cpe_table, cpe_item) == '*'))
 
         query = query.offset(opts.pageIdx * opts.pageSize).limit(opts.pageSize)
-        result = dict(search=get_non_empty_opts(opts), result=[row.data for row in query.all()])
+        result = dict(search=get_non_empty_opts(opts), result=[row.data for row in session.scalars(query).all()])
 
     return result
 
@@ -305,22 +305,22 @@ def search_cwes(appctx: ApplicationContext, opts: SearchOptions):
     with appctx.db as session:
 
         # prepare the search query
-        query = session.query(cwe_table)
+        query = select(cwe_table)
 
         # add the filters
         if opts.keywordSearch:
             for idx, keyword in enumerate(opts.keywordSearch):
-                query = query.filter(text(f"cwe_table.description ~* :keyword{idx}")).params(**{f'keyword{idx}':keyword})
+                query = query.where(text(f"cwe_table.description ~* :keyword{idx}")).params(**{f'keyword{idx}':keyword})
 
         if opts.cweId:
             # remove any letters and '-' from the IDs in case those were specified
             cwe_id_fix = re.compile(r'[A-Za-z\-]*')
             cwe_ids = list(map(lambda cwe: cwe_id_fix.sub('', cwe), opts.cweId))
 
-            query = query.filter(cwe_table.cwe_id.in_(cwe_ids))
+            query = query.where(cwe_table.cwe_id.in_(cwe_ids))
 
         query = query.offset(opts.pageIdx * opts.pageSize).limit(opts.pageSize)
-        result = dict(search=get_non_empty_opts(opts), result=[row.data for row in query.all()])
+        result = dict(search=get_non_empty_opts(opts), result=[row.data for row in session.scalars(query).all()])
 
     return result
 
@@ -335,12 +335,12 @@ def search_capec(appctx: ApplicationContext, opts: SearchOptions):
     with appctx.db as session:
 
         # prepare the search query
-        query = session.query(capec_table)
+        query = select(capec_table)
 
         # search by the keywords
         if opts.keywordSearch:
             for idx, keyword in enumerate(opts.keywordSearch):
-                query = query.filter(text(f"capec_table.description ~* :keyword{idx}")).params(**{f'keyword{idx}':keyword})
+                query = query.where(text(f"capec_table.description ~* :keyword{idx}")).params(**{f'keyword{idx}':keyword})
 
         # search by the CAPEC IDs
         if opts.capecId:
@@ -348,10 +348,10 @@ def search_capec(appctx: ApplicationContext, opts: SearchOptions):
             capec_id_fix = re.compile(r'[A-Za-z\-]*')
             capec_ids = list(map(lambda capec: capec_id_fix.sub('', capec), opts.capecId))
 
-            query = query.filter(capec_table.capec_id.in_(capec_ids))
+            query = query.where(capec_table.capec_id.in_(capec_ids))
 
         query = query.offset(opts.pageIdx * opts.pageSize).limit(opts.pageSize)
-        result = dict(search=get_non_empty_opts(opts), result=[row.data for row in query.all()])
+        result = dict(search=get_non_empty_opts(opts), result=[row.data for row in session.scalars(query).all()])
     return result
 
 
@@ -403,7 +403,7 @@ def results_output_json(search_results):
 def get_fetch_status(appctx):
 
     with appctx.db as session:
-        data = session.query(FetchStatus).all()
+        data = session.scalars(select(FetchStatus)).all()
 
         return {
             row.name: dict(update_date=str(row.last_modified_date), count=row.stats.get('total_records', 'N/A'))

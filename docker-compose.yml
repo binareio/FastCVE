@@ -1,10 +1,9 @@
-version: "3.7"
 services:
     #--------------------------------------------------------------------------
     # Application Database service
     #--------------------------------------------------------------------------
     fastcve:
-        image: "fastcve:${DOCKER_TAG:-latest}"
+        image: "${FASTCVE_DOCKER_IMG}"
 
         container_name: fastcve
 
@@ -15,12 +14,12 @@ services:
             dockerfile: $PWD/Dockerfile
 
         environment:
-            - INP_ENV_NAME
-            - POSTGRES_PASSWORD
-            - FCDB_USER
-            - FCDB_PASS
+            - INP_ENV_NAME=${INP_ENV_NAME}
+            - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+            - FCDB_USER=${FCDB_USER}
+            - FCDB_PASS=${FCDB_PASS}
             - FCDB_WEB_PARAMS=--host 0.0.0.0 --port 8000 --workers 4
-            - NVD_API_KEY
+            - NVD_API_KEY=${NVD_API_KEY}
 
         volumes:
             - vol_fastcve_db:/var/lib/postgresql/data

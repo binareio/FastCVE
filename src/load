@@ -25,6 +25,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
 import generic
+from sqlalchemy import text, select, delete
 from sqlalchemy.dialects.postgresql import insert
 from datetime import datetime, timedelta
 from db.tables import FetchStatus, Vuln, VulnCpes, Cpe, Cwe, Capec, Epss
@@ -45,7 +46,7 @@ http_retry_strategy = Retry(
     total=10,
     backoff_factor=0.5,
     status_forcelist=[403, 503],
-    method_whitelist=["GET"]
+    allowed_methods=["GET"]
 )
 
 # ------------------------------------------------------------------------------
@@ -122,7 +123,7 @@ def save_vuln_cpes_data(appctx, db_records):
 
         delete_ids = list(set([item['vuln_id'] for item in db_records]))
         for batch in [delete_ids[i:i + BATCH_SIZE] for i in range(0, len(delete_ids), BATCH_SIZE)]:
-            session.query(VulnCpes).filter(VulnCpes.vuln_id.in_(batch)).delete(synchronize_session=False)
+            session.execute(delete(VulnCpes).where(VulnCpes.vuln_id.in_(batch)))
 
         for batch in [db_records[i:i + BATCH_SIZE] for i in range(0, len(db_records), BATCH_SIZE)]:
             session.bulk_insert_mappings(VulnCpes, batch, render_nulls=True)
@@ -164,8 +165,7 @@ def save_cve_data(appctx, data) -> dict:
     with appctx.db as session:
         # First remove the existing records (if any)
         for batch in [db_records[i:i + BATCH_SIZE] for i in range(0, len(data[key]), BATCH_SIZE)]:
-            session.query(Vuln).filter(Vuln.vuln_id.in_([cve['vuln_id'] for cve in batch])).delete(synchronize_session=False)
-
+            session.execute(delete(Vuln).where(Vuln.vuln_id.in_([cve['vuln_id'] for cve in batch])))
             session.bulk_insert_mappings(Vuln, batch, render_nulls=True)
 
         save_vuln_cpes_data(appctx, db_records_cpes)
@@ -200,7 +200,7 @@ def save_cpe_data(appctx, data) -> dict:
     with appctx.db as session:
         # First remove the existing records (if any)
         for delete_batch in [data[key][i:i + BATCH_SIZE] for i in range(0, len(data[key]), BATCH_SIZE)]:
-            session.query(Cpe).filter(Cpe.name.in_([cpe['cpe']['cpeName'] for cpe in delete_batch])).delete(synchronize_session=False)
+            session.execute(delete(Cpe).where(Cpe.name.in_([cpe['cpe']['cpeName'] for cpe in delete_batch])))
 
         for batch in [db_records[i:i + BATCH_SIZE] for i in range(0, len(data[key]), BATCH_SIZE)]:
             session.bulk_insert_mappings(Cpe, batch, render_nulls=True)
@@ -401,10 +401,11 @@ def save_cwe_data(appctx, args, db_records):
     with appctx.db as session:
 
         if args.drop:
-            session.execute(f'truncate {Cwe.__tablename__}')
+            session.execute(text(f'truncate {Cwe.__tablename__}'))
         else:
             for batch in [db_records[i:i + BATCH_SIZE] for i in range(0, len(db_records), BATCH_SIZE)]:
-                session.query(Cwe).filter(Cwe.cwe_id.in_([item['cwe_id'] for item in batch])).delete(synchronize_session=False)
+                stmt = delete(Cwe).where(Cwe.cwe_id.in_([item['cwe_id'] for item in batch]))
+                session.execute(stmt)
 
         db_insert_progress_name = 'cwe db insert'
         bar_format = '{n_fmt}/{total} {l_bar}{bar}| ({elapsed}/{remaining})'
@@ -422,10 +423,11 @@ def save_capec_data(appctx, args, db_records):
     with appctx.db as session:
 
         if args.drop:
-            session.execute(f'truncate {Capec.__tablename__}')
+            session.execute(text(f'truncate {Capec.__tablename__}'))
         else:
             for batch in [db_records[i:i + BATCH_SIZE] for i in range(0, len(db_records), BATCH_SIZE)]:
-                session.query(Capec).filter(Capec.capec_id.in_([item['capec_id'] for item in batch])).delete(synchronize_session=False)
+                stmt = delete(Capec).where(Capec.capec_id.in_([item['capec_id'] for item in batch]))
+                session.execute(stmt)
 
         db_insert_progress_name = 'capec db insert'
         bar_format = '{n_fmt}/{total} {l_bar}{bar}| ({elapsed}/{remaining})'
@@ -449,7 +451,8 @@ def save_epss_data(appctx, args, epss_records):
         BATCH_SIZE_EPSS = 5000
         for batch in [list(epss_records.keys())[i:i + BATCH_SIZE_EPSS] for i in
                       range(0, len(epss_records), BATCH_SIZE_EPSS)]:
-            existing_records = session.query(Epss).filter(Epss.cve_id.in_(batch)).all()
+
+            existing_records = session.scalars(select(Epss).where(Epss.cve_id.in_(batch))).all()
             existing_records_dict = {record.cve_id: record for record in existing_records}
 
             new_records = []
@@ -477,7 +480,7 @@ def save_epss_data(appctx, args, epss_records):
                 })
 
             if existing_records:
-                session.query(Epss).filter(Epss.cve_id.in_(batch)).delete(synchronize_session=False)
+                session.execute(delete(Epss).where(Epss.cve_id.in_(batch)))
 
             session.bulk_insert_mappings(Epss, new_records, render_nulls=True)
             db_insert_progress.update(len(batch))
@@ -491,31 +494,51 @@ def fetch_epss_data(appctx, update_db, CVE_IDS = None):
     from sqlalchemy.orm import load_only
 
     with appctx.db as session:
-
+        # Build the query for Epss records
         if CVE_IDS is None:
-            epss_query = session.query(Epss).filter(Epss.changed == True).all()
+            stmt = select(Epss).where(Epss.changed == True)
         else:
-            epss_query= session.query(Epss).filter(Epss.cve_id.in_(CVE_IDS)).all()
+            stmt = select(Epss).where(Epss.cve_id.in_(CVE_IDS))
+            
+        epss_query = session.scalars(stmt).all()
 
         if update_db:
+            # Process in batches.
             for batch in [epss_query[i:i + BATCH_SIZE] for i in range(0, len(epss_query), BATCH_SIZE)]:
-                vuln_data = session.query(Vuln).filter(Vuln.vuln_id.in_([epss.cve_id for epss in batch])).options(load_only(Vuln.id, Vuln.data)).all()
+                # Extract the list of cve_ids from the current batch.
+                batch_ids = [epss.cve_id for epss in batch]
+                # Select Vulnerability records with only the needed columns.
+                vuln_stmt = (
+                    select(Vuln)
+                    .where(Vuln.vuln_id.in_(batch_ids))
+                    .options(load_only(Vuln.id, Vuln.data))
+                )
+                vuln_data = session.scalars(vuln_stmt).all()
                 update_values = []
 
                 for vuln_record in vuln_data:
+                    # Find the corresponding epss record by cve_id
                     epss_desired_row = next((row for row in batch if row.cve_id == vuln_record.vuln_id), None)
-
                     if epss_desired_row:
-                        vuln_record.data['metrics']['epss'] = {'score': epss_desired_row.epss_score,
-                                                               'percentile': epss_desired_row.percentile,
-                                                               'date': epss_desired_row.date.strftime("%Y-%m-%d")}
-
+                        # Update the nested dictionary field
+                        vuln_record.data['metrics']['epss'] = {
+                            'score': epss_desired_row.epss_score,
+                            'percentile': epss_desired_row.percentile,
+                            'date': epss_desired_row.date.strftime("%Y-%m-%d"),
+                        }
                         update_values.append({'id': vuln_record.id, 'data': vuln_record.data})
+                # Bulk update mappings for the Vulnerabilities
                 session.bulk_update_mappings(Vuln, update_values)
         else:
-
-            return {query_row.cve_id: [query_row.epss_score, query_row.percentile, query_row.date.strftime("%Y-%m-%d")] for query_row in
-                    epss_query}
+            # Return a dictionary mapping cve_id to a list with the EPSs values
+            return {
+                query_row.cve_id: [
+                    query_row.epss_score,
+                    query_row.percentile,
+                    query_row.date.strftime("%Y-%m-%d")
+                ]
+                for query_row in epss_query
+            }
 
 
 def save_vdk_data(appctx, args, db_records):
@@ -528,7 +551,7 @@ def save_vdk_data(appctx, args, db_records):
                                   ascii=True)
 
         for batch_id in [list(db_records.keys())[i:i + BATCH_SIZE] for i in range(0, len(db_records), BATCH_SIZE)]:
-            vuln_data= session.query(Vuln).filter(Vuln.vuln_id.in_(batch_id)).all()
+            vuln_data = session.scalars(select(Vuln).where(Vuln.vuln_id.in_(batch_id))).all()
 
             update_values = []
 
@@ -755,7 +778,7 @@ def fetch_status(appctx, name, args, data=None):
 
         # we need to get the data from the fetch status table
         else:
-            info = session.query(FetchStatus).filter(FetchStatus.name == name).one_or_none()
+            info = session.scalars(select(FetchStatus).where(FetchStatus.name == name)).one_or_none()
             if info:
                 return dict(
                     name=info.name,

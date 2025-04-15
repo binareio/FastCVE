@@ -47,7 +47,7 @@ class DataBase():
         # https://docs.sqlalchemy.org/en/13/core/pooling.html
         self.__add_engine_pidguard()
 
-        self.__db_session_cls = sqlalchemy.orm.sessionmaker(bind=self.__db_engine)
+        self.__db_session_cls = sqlalchemy.orm.sessionmaker(bind=self.__db_engine, future=True)
 
         self.__thread_sessions = {}
 

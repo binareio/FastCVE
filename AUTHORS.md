@@ -7,3 +7,8 @@ Primary Authors
 
 Other Contributors
 ==================
+
+* __[Narges Yousefnezhad (narcissus1394)](https://github.com/narcissus1394)__
+* __[LRVT (l4rm4nd)](https://github.com/l4rm4nd)__
+* __[fabianjarrett-ncc](https://github.com/fabianjarrett-ncc)__
+* __[Fuziih](https://github.com/Fuziih)__
