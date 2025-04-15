@@ -1,9 +1,8 @@
 name: Auto Push Docker Image
 
 on:
-  push:
-    branches:
-      - main
+  release:
+    types: [published]
 
 jobs:
   build-and-update-docker:
