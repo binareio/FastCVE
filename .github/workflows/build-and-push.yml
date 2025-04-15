@@ -26,7 +26,8 @@ jobs:
       # Step 4: Build Docker Image with release and latest tags
       - name: Build Docker Image
         run: |
-          docker build -t ${{ secrets.DOCKER_USERNAME }}/fastcve:${{ github.ref_name }} \
+          docker build --build-arg APP_VERSION=${{ github.ref_name }} \
+                       -t ${{ secrets.DOCKER_USERNAME }}/fastcve:${{ github.ref_name }} \
                        -t ${{ secrets.DOCKER_USERNAME }}/fastcve:latest .
 
       # Step 5: Push Docker Image for both tags

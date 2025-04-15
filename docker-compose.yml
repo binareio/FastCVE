@@ -3,7 +3,7 @@ services:
     # Application Database service
     #--------------------------------------------------------------------------
     fastcve:
-        image: "${FASTCVE_DOCKER_IMG}"
+        image: "${FASTCVE_DOCKER_IMG}:${FASTCVE_DOCKER_TAG}"
 
         container_name: fastcve
 
@@ -12,6 +12,9 @@ services:
         build:
             context: $PWD
             dockerfile: $PWD/Dockerfile
+
+            args:
+                APP_VERSION: ${FASTCVE_DOCKER_TAG:-0.1.0}
 
         environment:
             - INP_ENV_NAME=${INP_ENV_NAME}

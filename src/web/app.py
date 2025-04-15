@@ -5,8 +5,10 @@ from common.search import search_data
 from dependencies import get_app_cntxt
 from web.routers.search import router as router_search
 from web.models.search import StatusOutput
+import os
 
-app = FastAPI(title="FastCVE", description="fast, rich and API-based search for CVE and more (CPE, CWE, CAPEC)", version="0.1.0")
+version = os.getenv("APP_VERSION", "0.1.0")
+app = FastAPI(title="FastCVE", description="Fast, Rich and API-based search for CVE and more (CPE, CWE, CAPEC)", version=version)
 
 
 @app.get("/status", tags=['status'], name="DB status", response_model=StatusOutput)
