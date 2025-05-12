@@ -2,7 +2,7 @@ FROM postgres:16-alpine3.19
 
 ARG APP_VERSION=notset
 
-ENV FCDB_HOME=/fastcve FCDB_NAME=vuln_db POSTGRES_PASSWORD= FCDB_USER= FCDB_PASS= 
+ENV FCDB_HOME=/fastcve FCDB_NAME=vuln_db POSTGRES_PASSWORD= FCDB_USER= FCDB_PASS= INP_ENV_NAME=dev
 ENV PATH=${FCDB_HOME}:$PATH
 
 RUN apk add gcc g++ build-base python3-dev py3-pip
