@@ -11,6 +11,7 @@ $ search --help
 Copyright (c) 2020 to date, Binare Oy (license@binare.io) All rights reserved.
 """
 
+import os
 import logging
 import pydantic_argparse
 import argcomplete
@@ -21,8 +22,8 @@ from common.models import SearchOptions
 from common.util import init_db_schema
 from common.search import search_data, results_output
 
-__version__ = '1.0.0'
-__description__ = "fastCVE - fast, rich and API-based search for CVE and more (CPE, CWE, CAPEC)"
+__version__ = os.getenv("APP_VERSION", "modified")
+__description__ = "FastCVE - fast, rich and API-based search for CVE and more (CPE, CWE, CAPEC)"
 
 # ------------------------------------------------------------------------------
 def main():

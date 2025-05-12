@@ -1,8 +1,8 @@
 FROM postgres:16-alpine3.19
 
-ARG APP_VERSION=0.1.0
+ARG APP_VERSION=notset
 
-ENV APP_VERSION=${APP_VERSION} FCDB_HOME=/fastcve FCDB_NAME=vuln_db POSTGRES_PASSWORD= FCDB_USER= FCDB_PASS= 
+ENV FCDB_HOME=/fastcve FCDB_NAME=vuln_db POSTGRES_PASSWORD= FCDB_USER= FCDB_PASS= 
 ENV PATH=${FCDB_HOME}:$PATH
 
 RUN apk add gcc g++ build-base python3-dev py3-pip
@@ -16,6 +16,8 @@ RUN pip install --break-system-packages -r /tmp/requirements.txt
 COPY ./docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 COPY ./start_web.sh /always-init.d/start_web.sh
 COPY ./src ${FCDB_HOME}
+
+RUN sed -i "1i\export APP_VERSION=${APP_VERSION}" ${FCDB_HOME}/config/setenv/setenv_*
 
 RUN mkdir -p ${FCDB_HOME}/logs && chmod +wx ${FCDB_HOME}/logs \
     && chmod +x ${FCDB_HOME}/db/setup_db.sh \

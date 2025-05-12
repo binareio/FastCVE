@@ -14,7 +14,7 @@ services:
             dockerfile: $PWD/Dockerfile
 
             args:
-                APP_VERSION: ${FASTCVE_DOCKER_TAG:-0.1.0}
+                APP_VERSION: ${FASTCVE_DOCKER_TAG:-notset}
 
         environment:
             - INP_ENV_NAME=${INP_ENV_NAME}

@@ -7,7 +7,7 @@ from web.routers.search import router as router_search
 from web.models.search import StatusOutput
 import os
 
-version = os.getenv("APP_VERSION", "0.1.0")
+version = os.getenv("APP_VERSION", "modified")
 app = FastAPI(title="FastCVE", description="Fast, Rich and API-based search for CVE and more (CPE, CWE, CAPEC)", version=version)
 
 
