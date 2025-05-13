@@ -52,6 +52,10 @@ class SearchInputCve:
     def __init__(self, *,
         cve_id: Optional[List[str]] = Query(default=None, description="Related CVE IDs to search for", alias="cve"),
         cpe_name: Optional[str] = Query(default=None, description="CPE2.3 filter specification to search for", alias="cpe23"),
+        version_start: Optional[str] = Query(default=None, description="CPE version start to search for", alias="version-start"),
+        version_start_include: Optional[bool] = Query(default=False, description="If set to true, the version start is included in the search", alias="version-start-include"),
+        version_end: Optional[str] = Query(default=None, description="CPE version end to search for", alias="version-end"),
+        version_end_include: Optional[bool] = Query(default=False, description="If set to true, the version end is included in the search", alias="version-end-include"),
         cwe_id: Optional[List[str]] = Query(default=None, description="Related CWE IDs to search for", alias="cwe"),
         last_mod_start_date: Optional[date] = Query(default=None, description="Last modified start date", alias="last-mod-start-date"),
         last_mod_end_date: Optional[date] = Query(default=None, description="Last modified end date", alias="last-mod-end-date"),
@@ -75,6 +79,10 @@ class SearchInputCve:
         
         self.cve_id = cve_id
         self.cpe_name = cpe_name
+        self.version_start = version_start
+        self.version_start_include = version_start_include
+        self.version_end = version_end
+        self.version_end_include = version_end_include
         self.cwe_id = cwe_id
         self.last_mod_start_date = last_mod_start_date
         self.last_mod_end_date = last_mod_end_date
@@ -99,6 +107,10 @@ class SearchInputCpe:
 
     def __init__(self, *,
         cpe_name: Optional[str] = Query(default=None, description="CPE2.3 filter specification to search for", alias="cpe23"),
+        version_start: Optional[str] = Query(default=None, description="CPE version start to search for", alias="version-start"),
+        version_start_include: Optional[bool] = Query(default=False, description="If set to true, the version start is included in the search", alias="version-start-include"),
+        version_end: Optional[str] = Query(default=None, description="CPE version end to search for", alias="version-end"),
+        version_end_include: Optional[bool] = Query(default=False, description="If set to true, the version end is included in the search", alias="version-end-include"),
         last_mod_start_date: Optional[date] = Query(default=None, description="Last modified start date", alias="last-mod-start-date"),
         last_mod_end_date: Optional[date] = Query(default=None, description="Last modified end date", alias="last-mod-end-date"),
         days: Optional[int] = Query(default=None, description="Number of days back when the CPEs were last modified", alias="days-back", ge=0),
@@ -106,6 +118,10 @@ class SearchInputCpe:
     ) -> None:
 
         self.cpe_name = cpe_name
+        self.version_start = version_start
+        self.version_start_include = version_start_include
+        self.version_end = version_end
+        self.version_end_include = version_end_include
         self.last_mod_start_date = last_mod_start_date
         self.last_mod_end_date = last_mod_end_date
         self.days = days

@@ -26,7 +26,7 @@ services:
 
         volumes:
             - vol_fastcve_db:/var/lib/postgresql/data
-              #- ./config/setenv/:/fastcve/config/setenv
+            #- ./src/config/setenv/:/fastcve/config/setenv/
             - ./:/tmp
 
         ports:

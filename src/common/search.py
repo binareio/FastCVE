@@ -156,7 +156,7 @@ def get_cvss_metric_conditions(cvss_metrics: str, version:str) -> Iterator[dict]
 
 
 # ------------------------------------------------------------------------------
-def get_vuln_cpes(appctx: ApplicationContext, cpes: List[str], vulnerable: bool = True):
+def get_vuln_cpes(appctx: ApplicationContext, opts: SearchOptions, vulnerable: bool = True):
 
     cpe_items = dict(
         part=None, vendor=None, product=None, version=None, update=None, edition=None,
@@ -166,6 +166,8 @@ def get_vuln_cpes(appctx: ApplicationContext, cpes: List[str], vulnerable: bool 
     cve_cpe_config = aliased(VulnCpes, name='cve_cpe_config')
     cve_cpe_config_cols = [col.name for col in cve_cpe_config.__table__.columns]
     result = {}
+
+    cpes = [opts.cpeName]
 
     with appctx.db as session:
         for search_cpe in cpes:
@@ -210,6 +212,56 @@ def get_vuln_cpes(appctx: ApplicationContext, cpes: List[str], vulnerable: bool 
                             query = query.where(expression.or_(getattr(cve_cpe_config, cpe_item) == search_cpe_parts[cpe_item],
                                                                 getattr(cve_cpe_config, cpe_item) == '*'))
 
+            if opts.versionStart:
+                if opts.versionStartInclude:
+                    qry_ver_cond = expression.and_(
+                        text("ver_pad(:ver_start, 7) <= ver_pad(coalesce(cve_cpe_config.version_le, 'zzzzzzz'), 7)"),
+                        text("ver_pad(:ver_start, 7) <= ver_pad(coalesce(cve_cpe_config.version_lt, 'zzzzzzz'), 7)"),
+                        text("ver_pad(:ver_start, 7) >= ver_pad(coalesce(cve_cpe_config.version_ge, '0'), 7)"),
+                        text("ver_pad(:ver_start, 7) >= ver_pad(coalesce(cve_cpe_config.version_gt, '0'), 7)"),
+                        expression.or_(
+                            cve_cpe_config.version == '*',
+                            text("ver_pad(coalesce(cve_cpe_config.version, '0'), 7) >= ver_pad(:ver_start, 7)")
+                        )
+                    )
+                else:
+                    qry_ver_cond = expression.and_(
+                        text("ver_pad(:ver_start, 7) < ver_pad(coalesce(cve_cpe_config.version_le, 'zzzzzzz'), 7)"),
+                        text("ver_pad(:ver_start, 7) <= ver_pad(coalesce(cve_cpe_config.version_lt, 'zzzzzzz'), 7)"),
+                        text("ver_pad(:ver_start, 7) > ver_pad(coalesce(cve_cpe_config.version_ge, '0'), 7)"),
+                        text("ver_pad(:ver_start, 7) >= ver_pad(coalesce(cve_cpe_config.version_gt, '0'), 7)"),
+                        expression.or_(
+                            cve_cpe_config.version == '*',
+                            text("ver_pad(coalesce(cve_cpe_config.version, '0'), 7) > ver_pad(:ver_start, 7)")
+                        )
+                    )
+                query = query.where(qry_ver_cond).params(ver_start=opts.versionStart)
+
+            if opts.versionEnd:
+                if opts.versionEndInclude:
+                    qry_ver_cond = expression.and_(
+                        text("ver_pad(:ver_end, 7) <= ver_pad(coalesce(cve_cpe_config.version_le, 'zzzzzzz'), 7)"),
+                        text("ver_pad(:ver_end, 7) <= ver_pad(coalesce(cve_cpe_config.version_lt, 'zzzzzzz'), 7)"),
+                        text("ver_pad(:ver_end, 7) >= ver_pad(coalesce(cve_cpe_config.version_ge, '0'), 7)"),
+                        text("ver_pad(:ver_end, 7) >= ver_pad(coalesce(cve_cpe_config.version_gt, '0'), 7)"),
+                        expression.or_(
+                            cve_cpe_config.version == '*',
+                            text("ver_pad(coalesce(cve_cpe_config.version, 'zzzzzzz'), 7) <= ver_pad(:ver_end, 7)")
+                        )
+                    )
+                else:
+                    qry_ver_cond = expression.and_(
+                        text("ver_pad(:ver_end, 7) < ver_pad(coalesce(cve_cpe_config.version_le, 'zzzzzzz'), 7)"),
+                        text("ver_pad(:ver_end, 7) <= ver_pad(coalesce(cve_cpe_config.version_lt, 'zzzzzzz'), 7)"),
+                        text("ver_pad(:ver_end, 7) > ver_pad(coalesce(cve_cpe_config.version_ge, '0'), 7)"),
+                        text("ver_pad(:ver_end, 7) >= ver_pad(coalesce(cve_cpe_config.version_gt, '0'), 7)"),
+                        expression.or_(
+                            cve_cpe_config.version == '*',
+                            text("ver_pad(coalesce(cve_cpe_config.version, 'zzzzzzz'), 7) < ver_pad(:ver_end, 7)")
+                        )
+                    )
+                query = query.where(qry_ver_cond).params(ver_end=opts.versionEnd)
+
             if vulnerable:
                 query = query.where(cve_cpe_config.vulnerable == True)
 
@@ -222,7 +274,7 @@ def get_vuln_cpes(appctx: ApplicationContext, cpes: List[str], vulnerable: bool 
 def search_cves_by_cpes(appctx: ApplicationContext, opts: SearchOptions):
 
     # first get the cve configurations that are vulnerable for the provided list of cpes
-    vuln_config_cpes = get_vuln_cpes(appctx, [opts.cpeName], vulnerable=opts.vulnerable)
+    vuln_config_cpes = get_vuln_cpes(appctx, opts, vulnerable=opts.vulnerable)
 
     # TODO: In case we would implement the feature of checking/making sure also the
     # vulnerable CPEs is in relation with the other CPEs
@@ -288,6 +340,21 @@ def search_cpes(appctx: ApplicationContext, opts: SearchOptions):
                     else:
                         query = query.where(expression.or_(getattr(cpe_table, cpe_item).like(search_cpe_parts[cpe_item].replace('*', '%')),
                                                             getattr(cpe_table, cpe_item) == '*'))
+                        
+            if opts.versionStart:
+                if opts.versionStartInclude:
+                    query = query.where(text("ver_pad(:version_start, 7) <= ver_pad(coalesce(cpe_table.version, '0'), 7)")).params(version_start=opts.versionStart)
+                else:
+                    query = query.where(text("ver_pad(:version_start, 7) < ver_pad(coalesce(cpe_table.version, '0'), 7)")).params(version_start=opts.versionStart)
+
+            if opts.versionEnd:
+                if opts.versionEndInclude:
+                    query = query.where(text("ver_pad(:version_end, 7) >= ver_pad(coalesce(cpe_table.version, 'zzzzzzz'), 7)")).params(version_end=opts.versionEnd)
+                else:
+                    query = query.where(text("ver_pad(:version_end, 7) > ver_pad(coalesce(cpe_table.version, 'zzzzzzz'), 7)")).params(version_end=opts.versionEnd)
+        else:
+            if opts.versionStart or opts.versionEnd:
+                raise ValidationError('Please specify CPE name to filter by version')
 
         query = query.offset(opts.pageIdx * opts.pageSize).limit(opts.pageSize)
         result = dict(search=get_non_empty_opts(opts), result=[row.data for row in session.scalars(query).all()])
