@@ -84,7 +84,7 @@ docker exec fastcve load --data cve cpe
 
 this will fetch the new/modified data for the period from the last data fetch (for a max of `n` days: parameter set in the config. NVD is allowing max 120 days period)
 
-If there is a need to repopulate the DB for the CWE/CAPEC info, then `--full` and `--drop` options are available for the CWE/CAPEC info load command. `--full` will cause to ignore the fact the CWE/CAPEC data is already present and `--drop` will cause to drop any exiting CWE/CAPEC related data before processing the new downloaded data. When using `--data epss` in combination with `--epss-now`, the load command explicitly fetches the EPSS data for the current date. If `--epss-now` is not specified, the script defaults to retrieving EPSS data from the previous day.
+If there is a need to repopulate the DB for the CWE/CAPEC info, then `--full` and `--drop` options are available for the CWE/CAPEC info load command. `--full` will cause to ignore the fact the CWE/CAPEC data is already present and `--drop` will cause to drop any exiting CWE/CAPEC related data before processing the new downloaded data. When using `--data epss` in combination with `--epss-now`, the load command explicitly fetches the EPSS data for the current date. If `--epss-now` is not specified, the script defaults to retrieve EPSS data from the previous day.
 
 - search for the data: **get the CVEs details (JSON) for a list of CVE-IDs**
 ```
