@@ -219,7 +219,7 @@ def fetch_data_feed(appctx, data_name, args):
 
     fetch_data_info = fetch_status(appctx, data_name, args)
     if fetch_data_info and not args.full:
-        if data_name == 'epss' and fetch_data_info['last_modified_date'].date() != date.today()-timedelta(days=1):
+        if (data_name == 'epss' and fetch_data_info['last_modified_date'].date() != date.today()-timedelta(days=1)) or (data_name == 'epss' and args.epss_now):
             pass
         elif data_name == 'kev':
             pass
