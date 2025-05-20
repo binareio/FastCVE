@@ -231,7 +231,7 @@ def fetch_data_feed(appctx, data_name, args):
     data_url = appctx.config.get_param(f'fetch.url.{data_name}', None)
 
     if data_name == 'epss':
-        days_delta = 0 if args.epss_now or 1
+        days_delta = 0 if args.epss_now else 1
         epss_date = date.today() - timedelta(days=days_delta)
         data_url = f"{data_url}/epss_scores-{epss_date.strftime('%Y-%m-%d')}.csv.gz"
 
