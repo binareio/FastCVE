@@ -219,7 +219,7 @@ def fetch_data_feed(appctx, data_name, args):
 
     fetch_data_info = fetch_status(appctx, data_name, args)
     if fetch_data_info and not args.full:
-        if data_name == 'epss' and fetch_data_info['last_modified_date'].date() != date.today()-timedelta(days=1):
+        if data_name == 'epss' and ((not args.epss_now and fetch_data_info['last_modified_date'].date() != date.today() - timedelta(days=1)) or (args.epss_now and fetch_data_info['last_modified_date'].date() != date.today())):
             pass
         elif data_name == 'kev':
             pass
@@ -231,9 +231,9 @@ def fetch_data_feed(appctx, data_name, args):
     data_url = appctx.config.get_param(f'fetch.url.{data_name}', None)
 
     if data_name == 'epss':
-        previous_day = date.today() - timedelta(days=1)
-        #download the EPSS data using the previous day from the current date.
-        data_url = f"{data_url}/epss_scores-{previous_day.strftime('%Y-%m-%d')}.csv.gz"
+        days_delta = 0 if args.epss_now else 1
+        epss_date = date.today() - timedelta(days=days_delta)
+        data_url = f"{data_url}/epss_scores-{epss_date.strftime('%Y-%m-%d')}.csv.gz"
 
     if not data_url: raise ValidationError(f'{data_name} url config param not specified')
 
@@ -813,6 +813,7 @@ def main():
     parser.add_argument('-t', '--to', dest='to_date', action='store', help='To Date YYYY-MM-DD["T"HH:MI:SS]')
     parser.add_argument('-o', '--offset', dest='offset', action='store', help='Data Fetch offset')
     parser.add_argument('-p', '--profile', dest='profile', action='store_true', help='enable app profiling')
+    parser.add_argument('--epss-now', dest='epss_now', action='store_true', help='Fetch latest EPSS data for today')
 
     argcomplete.autocomplete(parser)
 
