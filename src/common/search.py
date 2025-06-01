@@ -226,10 +226,10 @@ def get_vuln_cpes(appctx: ApplicationContext, opts: SearchOptions, vulnerable: b
                     )
                 else:
                     qry_ver_cond = expression.and_(
-                        text("ver_pad(:ver_start, 7) < ver_pad(coalesce(cve_cpe_config.version_le, 'zzzzzzz'), 7)"),
-                        text("ver_pad(:ver_start, 7) <= ver_pad(coalesce(cve_cpe_config.version_lt, 'zzzzzzz'), 7)"),
-                        text("ver_pad(:ver_start, 7) > ver_pad(coalesce(cve_cpe_config.version_ge, '0'), 7)"),
-                        text("ver_pad(:ver_start, 7) >= ver_pad(coalesce(cve_cpe_config.version_gt, '0'), 7)"),
+                        text("ver_pad(:ver_start, 7) <= ver_pad(coalesce(cve_cpe_config.version_le, 'zzzzzzz'), 7)"),
+                        text("ver_pad(:ver_start, 7) < ver_pad(coalesce(cve_cpe_config.version_lt, 'zzzzzzz'), 7)"),
+                        text("ver_pad(:ver_start, 7) >= ver_pad(coalesce(cve_cpe_config.version_ge, '0'), 7)"),
+                        text("ver_pad(:ver_start, 7) > ver_pad(coalesce(cve_cpe_config.version_gt, '0'), 7)"),
                         expression.or_(
                             cve_cpe_config.version == '*',
                             text("ver_pad(coalesce(cve_cpe_config.version, '0'), 7) > ver_pad(:ver_start, 7)")
@@ -251,10 +251,10 @@ def get_vuln_cpes(appctx: ApplicationContext, opts: SearchOptions, vulnerable: b
                     )
                 else:
                     qry_ver_cond = expression.and_(
-                        text("ver_pad(:ver_end, 7) < ver_pad(coalesce(cve_cpe_config.version_le, 'zzzzzzz'), 7)"),
-                        text("ver_pad(:ver_end, 7) <= ver_pad(coalesce(cve_cpe_config.version_lt, 'zzzzzzz'), 7)"),
-                        text("ver_pad(:ver_end, 7) > ver_pad(coalesce(cve_cpe_config.version_ge, '0'), 7)"),
-                        text("ver_pad(:ver_end, 7) >= ver_pad(coalesce(cve_cpe_config.version_gt, '0'), 7)"),
+                        text("ver_pad(:ver_end, 7) <= ver_pad(coalesce(cve_cpe_config.version_le, 'zzzzzzz'), 7)"),
+                        text("ver_pad(:ver_end, 7) < ver_pad(coalesce(cve_cpe_config.version_lt, 'zzzzzzz'), 7)"),
+                        text("ver_pad(:ver_end, 7) >= ver_pad(coalesce(cve_cpe_config.version_ge, '0'), 7)"),
+                        text("ver_pad(:ver_end, 7) > ver_pad(coalesce(cve_cpe_config.version_gt, '0'), 7)"),
                         expression.or_(
                             cve_cpe_config.version == '*',
                             text("ver_pad(coalesce(cve_cpe_config.version, 'zzzzzzz'), 7) < ver_pad(:ver_end, 7)")
