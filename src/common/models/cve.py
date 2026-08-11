@@ -105,7 +105,7 @@ class CvssV30(BaseModel):
 
     source: str
     type: Type
-    cvssData: CveCvssDataV30 
+    cvssData: CveCvssDataV30
     exploitabilityScore: Optional[confloat(ge=0.0, le=10.0)] = Field(
         None, description='CVSS subscore.'
     )
@@ -168,7 +168,8 @@ class Metrics(BaseModel):
     """
 
     class Config:
-       extra = Extra.forbid
+       #extra = Extra.forbid # see https://github.com/binareio/FastCVE/issues/26
+       extra = Extra.allow
 
     cvssMetricV40: Optional[List[CvssV40]] = Field(None, description='CVSS V4.0 score.')
     cvssMetricV31: Optional[List[CvssV31]] = Field(None, description='CVSS V3.1 score.')
@@ -183,7 +184,8 @@ class Config(BaseModel):
 
     operator: Optional[Operator] = None
     negate: Optional[bool] = None
-    nodes: List[Node]
+    #nodes: List[Node] # see https://github.com/binareio/FastCVE/issues/27
+    nodes: List[Node] = Field(default_factory=list)
 
 class CveItem(BaseModel):
     class Config:
